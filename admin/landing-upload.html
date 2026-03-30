@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3C Word Search — Landing Upload</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  
+  <!-- Auth Protection -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+
+  <style>
+    /* ── BRAND VARIABLES (matches admin panel) ── */
+    :root {
+      --bg:           #1a0a2e;
+      --bg-panel:     #231040;
+      --bg-input:     #160828;
+      --border:       rgba(200,169,110,0.20);
+      --border-focus: #C8A96E;
+      --purple:       #7B2FBE;
+      --purple-light: #9D4EDD;
+      --purple-neo:   #C77DFF;
+      --gold:         #C8A96E;
+      --gold-light:   #E2C98A;
+      --cyan:         #00D4FF;
+      --white:        #F0E6FF;
+      --text-muted:   rgba(200,180,240,0.55);
+      --success:      #4caf7d;
+      --danger:       #e05555;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Open Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOOLBAR ─────────────────────────────── */
+    #toolbar {
+      background: #12071f;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+    }
+
+    #toolbar-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--purple-neo);
+    }
+
+    #toolbar-back {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold-light);
+      background: rgba(200,169,110,0.12);
+      border: 1px solid rgba(200,169,110,0.35);
+      border-radius: 6px;
+      padding: 8px 18px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.16s;
+    }
+
+    #toolbar-back:hover {
+      background: rgba(200,169,110,0.22);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    /* ── TWO COLUMN LAYOUT ───────────────────── */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 28px 32px;
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── COLUMN PANELS ───────────────────────── */
+    .col-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .col-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── FIELD ───────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 7px; }
+
+    .field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── SELECT ──────────────────────────────── */
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: 'Open Sans', sans-serif;
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg-input);
+      color: var(--white);
+      direction: ltr;
+      cursor: pointer;
+      appearance: none;
+      transition: border-color 0.16s;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px rgba(200,169,110,0.15);
+    }
+
+    /* ── UPLOAD AREA ─────────────────────────── */
+    .upload-area {
+      border: 2px dashed rgba(200,169,110,0.30);
+      border-radius: 10px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: rgba(123,47,190,0.08);
+      position: relative;
+      flex: 1;
+    }
+
+    .upload-area:hover,
+    .upload-area.dragover {
+      border-color: var(--gold);
+      background: rgba(123,47,190,0.18);
+    }
+
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon { font-size: 2rem; margin-bottom: 10px; }
+
+    .upload-area p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .upload-area strong { color: var(--gold-light); }
+
+    .chosen-file {
+      margin-top: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* ── RIGHT COLUMN CONTENT ────────────────── */
+
+    /* Landscape preview for mobile-first background */
+    #previewWrap {
+      display: none;
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #previewWrap::before {
+      content: '';
+      display: block;
+      padding-top: 56.25%; /* 16:9 landscape aspect ratio */
+    }
+
+    #previewWrap img,
+    #previewWrap video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+      display: block;
+    }
+
+    /* Preview placeholder */
+    #previewPlaceholder {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      aspect-ratio: 16 / 9;
+      background: rgba(123,47,190,0.12);
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* ── UPLOAD BUTTON ───────────────────────── */
+    #btnUpload {
+      width: 100%;
+      padding: 14px;
+      background: var(--purple);
+      color: var(--gold-light);
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.18s;
+      text-transform: uppercase;
+    }
+
+    #btnUpload:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    #btnUpload:hover:not(:disabled) { background: var(--purple-light); }
+
+    /* ── PROGRESS BAR ────────────────────────── */
+    #progressWrap {
+      display: none;
+      background: rgba(255,255,255,0.08);
+      border-radius: 50px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--purple), var(--cyan));
+      border-radius: 50px;
+      transition: width 0.3s ease;
+    }
+
+    /* ── STATUS ──────────────────────────────── */
+    #statusMsg {
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: none;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    #statusMsg.success {
+      background: rgba(76,175,125,0.15);
+      border: 1px solid var(--success);
+      color: var(--success);
+      display: block;
+    }
+
+    #statusMsg.error {
+      background: rgba(224,85,85,0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      display: block;
+    }
+
+    #statusMsg.loading {
+      background: rgba(0,212,255,0.08);
+      border: 1px solid rgba(0,212,255,0.30);
+      color: var(--cyan);
+      display: block;
+    }
+
+    /* ── RESULT URL ──────────────────────────── */
+    #resultBlock {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #resultBlock label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #resultUrl {
+      flex: 1;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-family: 'Open Sans', sans-serif;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      direction: ltr;
+    }
+
+    #btnCopyUrl {
+      padding: 7px 14px;
+      font-size: 11px;
+      font-family: 'Open Sans', sans-serif;
+      font-weight: 700;
+      background: rgba(200,169,110,0.15);
+      color: var(--gold-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    #btnCopyUrl:hover { background: rgba(200,169,110,0.28); }
+
+    #copiedMsg {
+      font-size: 11px;
+      color: var(--success);
+      font-weight: 700;
+      display: none;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────── */
+    @media (max-width: 800px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toolbar -->
+  <header id="toolbar">
+    <span id="toolbar-title">📸 Landing Upload</span>
+    <a href="index.html" id="toolbar-back">← Back to Admin</a>
+  </header>
+
+  <!-- Two-column workspace -->
+  <div class="workspace">
+
+    <!-- ── LEFT: Select puzzle + Upload ─────────── -->
+    <div class="col-panel">
+      <div class="col-title">1 — Select &amp; Upload</div>
+
+      <!-- Puzzle dropdown -->
+      <div class="field">
+        <label for="puzzleSelect">Select Puzzle</label>
+        <select id="puzzleSelect">
+          <option value="">Loading puzzles…</option>
+        </select>
+        <span class="field-hint">
+          Only saved puzzles appear here. Save your puzzle in the admin first,
+          then come back to upload the landing media.
+        </span>
+      </div>
+
+      <!-- Upload area -->
+      <div class="field">
+        <label>Landing Image or Video</label>
+        <div
+          class="upload-area"
+          id="uploadArea"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event)"
+        >
+          <input
+            type="file"
+            id="fileInput"
+            accept="image/*,video/*"
+            onchange="handleFileSelect(this)"
+          />
+          <div class="upload-icon">📁</div>
+          <p>
+            Click to choose or drag &amp; drop<br>
+            <strong>Image or Video</strong> (PNG, JPG, MP4, WEBM…)
+          </p>
+          <div class="chosen-file" id="chosenFileName"></div>
+        </div>
+        <span class="field-hint">
+          This is the first screen users see when they open your shared puzzle link.
+          Recommended: Landscape orientation (16:9) for mobile-first design.
+          Each puzzle has its own landing media stored separately in Cloudflare R2.
+        </span>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ── RIGHT: Preview + Upload to Cloudflare ── -->
+    <div class="col-panel">
+      <div class="col-title">2 — Preview &amp; Save to Cloudflare</div>
+
+      <!-- Preview placeholder / actual preview -->
+      <div id="previewPlaceholder">
+        Preview appears here<br>after selecting a file
+      </div>
+      <div id="previewWrap"></div>
+
+      <!-- Progress -->
+      <div id="progressWrap">
+        <div id="progressBar"></div>
+      </div>
+
+      <!-- Status -->
+      <div id="statusMsg"></div>
+
+      <!-- Result URL -->
+      <div id="resultBlock">
+        <label>Saved — public URL:</label>
+        <div class="url-row">
+          <input type="text" id="resultUrl" readonly />
+          <button id="btnCopyUrl" onclick="copyUrl()">Copy</button>
+        </div>
+        <div id="copiedMsg">Copied!</div>
+      </div>
+
+      <!-- Upload button -->
+      <button id="btnUpload" disabled onclick="uploadLanding()">
+        Upload to Cloudflare
+      </button>
+
+    </div><!-- /right col -->
+
+  </div><!-- /workspace -->
+
+<script type="module">
+  import { fetchAllPuzzles } from './supabaseAPI.js';
+
+  const WORKER_URL = window.APP_CONFIG?.WORKER_URL || 'https://3c-wordsearch.3c-innertherapy.workers.dev';
+
+  let selectedFile = null;
+
+  /* ── Load puzzles ───────────────────────────────── */
+  async function loadPuzzles() {
+    const select = document.getElementById('puzzleSelect');
+    const data   = await fetchAllPuzzles();
+
+    if (!data || !data.length) {
+      select.innerHTML = '<option value="">No saved puzzles found — save a puzzle first</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">— Choose a puzzle —</option>' +
+      data.map(p =>
+        `<option value="${p.puzzle_slug}">${p.puzzle_slug} — ${p.title || 'Untitled'}</option>`
+      ).join('');
+  }
+
+  /* ── File select ──────────────────────────────── */
+  window.handleFileSelect = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    setFile(file);
+  };
+
+  window.handleDragOver = function(e) {
+    e.preventDefault();
+    document.getElementById('uploadArea').classList.add('dragover');
+  };
+
+  window.handleDragLeave = function(e) {
+    document.getElementById('uploadArea').classList.remove('dragover');
+  };
+
+  window.handleDrop = function(e) {
+    e.preventDefault();
+    document.getElementById('uploadArea').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    setFile(file);
+  };
+
+  function setFile(file) {
+    selectedFile = file;
+    document.getElementById('chosenFileName').textContent = file.name;
+
+    // Show preview in right column
+    const placeholder = document.getElementById('previewPlaceholder');
+    const wrap        = document.getElementById('previewWrap');
+    wrap.innerHTML    = '';
+    placeholder.style.display = 'none';
+    wrap.style.display        = 'block';
+
+    const localUrl = URL.createObjectURL(file);
+
+    if (file.type.startsWith('video/')) {
+      const v = document.createElement('video');
+      v.src         = localUrl;
+      v.autoplay    = true;
+      v.muted       = true;
+      v.loop        = true;
+      v.playsInline = true;
+      v.controls    = false;
+      wrap.appendChild(v);
+    } else {
+      const img = document.createElement('img');
+      img.src = localUrl;
+      img.alt = 'Preview';
+      wrap.appendChild(img);
+    }
+
+    checkReady();
+  }
+
+  document.getElementById('puzzleSelect').addEventListener('change', checkReady);
+
+  function checkReady() {
+    const slug = document.getElementById('puzzleSelect').value;
+    document.getElementById('btnUpload').disabled = !(slug && selectedFile);
+  }
+
+  /* ── Upload ───────────────────────────────────── */
+  window.uploadLanding = async function() {
+    const slug = document.getElementById('puzzleSelect').value;
+    if (!slug || !selectedFile) return;
+
+    const ext = selectedFile.name.split('.').pop().toLowerCase();
+
+    setStatus('loading', '⏳ Step 1 of 2 — Uploading landing media to R2…');
+    showProgress(true);
+    document.getElementById('btnUpload').disabled      = true;
+    document.getElementById('resultBlock').style.display = 'none';
+
+    try {
+      animateProgress(0, 50, 800);
+
+      const uploadRes = await fetch(`${WORKER_URL}/landing/${slug}`, {
+        method:  'PUT',
+        headers: {
+          'Content-Type':     selectedFile.type || 'application/octet-stream',
+          'X-File-Extension': ext,
+        },
+        body: selectedFile,
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({}));
+        throw new Error(err.error || `Upload error ${uploadRes.status}`);
+      }
+
+      const uploadResult = await uploadRes.json();
+      const publicUrl    = uploadResult.public_url;
+
+      setStatus('loading', '⏳ Step 2 of 2 — Updating puzzle JSON with landing URL…');
+      animateProgress(50, 80, 400);
+
+      const getRes = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+      if (!getRes.ok) throw new Error(`Could not fetch puzzle JSON (${getRes.status})`);
+      const puzzleJson = await getRes.json();
+
+      puzzleJson.landing = publicUrl;
+
+      const saveRes = await fetch(`${WORKER_URL}/puzzle/${slug}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(puzzleJson, null, 2),
+      });
+
+      if (!saveRes.ok) throw new Error(`Puzzle JSON update failed (${saveRes.status})`);
+
+      animateProgress(80, 100, 300);
+
+      setTimeout(() => {
+        showProgress(false);
+        setStatus('success',
+          `✅ Done! Landing media saved + puzzle JSON updated.\nFile: ${uploadResult.r2_key}`
+        );
+        document.getElementById('resultUrl').value          = publicUrl;
+        document.getElementById('resultBlock').style.display = 'flex';
+        document.getElementById('btnUpload').disabled        = false;
+      }, 350);
+
+    } catch (err) {
+      showProgress(false);
+      setStatus('error', '❌ ' + err.message);
+      document.getElementById('btnUpload').disabled = false;
+    }
+  };
+
+  /* ── Copy URL ─────────────────────────────────── */
+  window.copyUrl = function() {
+    const urlEl = document.getElementById('resultUrl');
+    urlEl.select();
+    document.execCommand('copy');
+    const msg = document.getElementById('copiedMsg');
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 1200);
+  };
+
+  /* ── Helpers ──────────────────────────────────── */
+  function setStatus(type, msg) {
+    const el      = document.getElementById('statusMsg');
+    el.className  = type;
+    el.textContent = msg;
+  }
+
+  function showProgress(show) {
+    document.getElementById('progressWrap').style.display = show ? 'block' : 'none';
+    if (!show) document.getElementById('progressBar').style.width = '0%';
+  }
+
+  function animateProgress(from, to, duration) {
+    const bar   = document.getElementById('progressBar');
+    const steps = 20;
+    const step  = (to - from) / steps;
+    const delay = duration / steps;
+    let current = from;
+    const interval = setInterval(() => {
+      current += step;
+      bar.style.width = Math.min(current, to) + '%';
+      if (current >= to) clearInterval(interval);
+    }, delay);
+  }
+
+  /* ── Init ─────────────────────────────────────── */
+  loadPuzzles();
+</script>
+
+<script src="./signout.js"></script>
+
+</body>
+</html>
