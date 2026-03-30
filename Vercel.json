@@ -1,9 +1,13 @@
 {
-  "buildCommand": "echo 'No build needed - OAuth only'",
-  "outputDirectory": "api",
   "functions": {
-    "api/auth/login.js":    { "memory": 128, "maxDuration": 5 },
-    "api/auth/callback.js": { "memory": 128, "maxDuration": 10 }
+    "api/auth/login.js": {
+      "memory": 128,
+      "maxDuration": 5
+    },
+    "api/auth/callback.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
   },
   "routes": [
     {
@@ -17,7 +21,9 @@
     {
       "src": "/(.*)",
       "status": 308,
-      "headers": { "Location": "https://anica-blip.github.io/3c-word-search/admin/login.html" }
+      "headers": {
+        "Location": "https://anica-blip.github.io/3c-word-search/admin/login.html"
+      }
     }
   ]
 }
