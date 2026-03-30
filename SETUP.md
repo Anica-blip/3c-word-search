@@ -200,12 +200,15 @@ All 4 public pages (`index.html`, `intro.html`, `game.html`, `finale.html`) load
 ## 6. Public Puzzle URL Format
 
 ```
-https://anica-blip.github.io/3c-word-search/public/index.html?puzzle=puzzle.01
+https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 ```
 
 Share this URL on Telegram / library for members to play.
 
-**Note**: All public game URLs use GitHub Pages. Vercel is not used for game hosting.
+**Note**: 
+- `landing.html` is the main entry point that loads the puzzle data
+- It then triggers `public/index.html` (consent page) to start the game flow
+- All public game URLs use GitHub Pages. Vercel is not used for game hosting.
 
 ---
 
@@ -231,20 +234,22 @@ Share this URL on Telegram / library for members to play.
 ## 8. Game Flow
 
 ```
-Member receives URL
+Member receives URL (landing.html?puzzle=puzzle.01)
       ↓
-Consent/Start page — instructions + word count
+Landing page — loads puzzle data from R2
       ↓
-Intro page — image or video (if set)
+Public/index.html — Consent/Start page (instructions + word count)
       ↓
-Game page — 12×12 transparent grid on background
+Intro.html — Intro media page (image or video, if set)
+      ↓
+Games.html — 12×12 word search game
   • Drag/tap letters to select a word
   • Green = found ✅  |  Red flash = wrong ❌
   • Counter: "3 / 6 found" pulses on each find
   • "Continue →" appears when all words found
   • "Quit" always available
       ↓
-Finale page — image or video + Well Done message
+Finale.html — Finale media page (image or video + Well Done message)
 ```
 
 ---
