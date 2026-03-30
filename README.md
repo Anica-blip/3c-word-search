@@ -22,12 +22,14 @@ A fully customizable word search game system where admins can create puzzles wit
 |------|-----|
 | **Admin Login** | [admin/login.html](https://anica-blip.github.io/3c-word-search/admin/login.html) |
 | **Admin Panel** | [admin/index.html](https://anica-blip.github.io/3c-word-search/admin/index.html) |
-| **Public Game** | `public/index.html?puzzle=puzzle.01` |
+| **Public Game** | `landing.html?puzzle=puzzle.01` |
 
 **Example Game URL**:
 ```
-https://anica-blip.github.io/3c-word-search/public/index.html?puzzle=puzzle.01
+https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 ```
+
+**Note**: `landing.html` is the main entry point that loads puzzle data and triggers the game flow through `public/index.html` (consent page).
 
 ---
 
@@ -84,19 +86,21 @@ https://anica-blip.github.io/3c-word-search/public/index.html?puzzle=puzzle.01
 ## Game Flow
 
 ```
-1. Member receives puzzle URL
+1. Member receives puzzle URL (landing.html?puzzle=puzzle.01)
    ↓
-2. Consent/Start page — shows title, word count, instructions
+2. Landing page — loads puzzle data from R2
    ↓
-3. Intro page (optional) — displays intro media
+3. Public/index.html — Consent/Start page (shows title, word count, instructions)
    ↓
-4. Game page — 12×12 word search grid
+4. Intro.html (optional) — displays intro media
+   ↓
+5. Games.html — 12×12 word search grid
    • Drag/tap letters to select words
    • Green = found ✅  |  Red flash = wrong ❌
    • Counter updates: "3 / 6 found"
    • "Continue →" appears when complete
    ↓
-5. Finale page (optional) — displays finale media + "Well Done!"
+6. Finale.html (optional) — displays finale media + "Well Done!"
 ```
 
 ---
