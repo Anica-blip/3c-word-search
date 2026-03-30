@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>3C Word Search</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+  <div class="page" id="page">
+    <!-- Background injected by JS -->
+    <div class="page-content">
+      <div class="glass-card" id="card">
+        <p class="page-subtitle" style="margin-bottom:6px;">3C Thread To Success</p>
+        <h1 class="page-title" id="puzzle-title">Loading...</h1>
+        <p class="page-body" id="instructions" style="margin:14px 0 20px;"></p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="start-btn" onclick="startGame()" disabled>
+            ▶ Start Puzzle
+          </button>
+          <button class="btn btn-ghost" onclick="quit()">Quit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="watermark">Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success 🧪👨‍🍳</div>
+
+  <script>
+    const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
+    const params = new URLSearchParams(location.search);
+    const slug   = params.get('puzzle');
+
+    async function loadPuzzle() {
+      if (!slug) {
+        document.getElementById('puzzle-title').textContent = 'No puzzle selected';
+        return;
+      }
+      try {
+        const res  = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+        if (!res.ok) throw new Error('Puzzle not found');
+        const data = await res.json();
+
+        // Background
+        if (data.bg_image) {
+          const img = document.createElement('img');
+          img.src = data.bg_image; img.className = 'bg-img'; img.alt = '';
+          document.getElementById('page').prepend(img);
+        }
+
+        // Title + instructions
+        document.getElementById('puzzle-title').textContent = data.title || 'Word Search';
+        const wc = (data.word_list || []).length;
+        document.getElementById('instructions').innerHTML =
+          `Find <strong style="color:#a855f7">${wc} hidden word${wc > 1 ? 's' : ''}</strong> in the 12×12 grid.<br>
+           Drag or tap across letters in any direction — horizontal, vertical, or diagonal.<br>
+           Letters glow <span style="color:#22c55e">green</span> when a word is found.`;
+
+        // Store in sessionStorage for game page
+        sessionStorage.setItem('wsPuzzle', JSON.stringify(data));
+
+        document.getElementById('start-btn').disabled = false;
+      } catch (err) {
+        document.getElementById('puzzle-title').textContent = 'Puzzle not found';
+        document.getElementById('instructions').textContent = err.message;
+      }
+    }
+
+    function startGame() {
+      // Skip intro if no intro asset
+      const data = JSON.parse(sessionStorage.getItem('wsPuzzle') || '{}');
+      if (data.intro_asset) {
+        location.href = `intro.html?puzzle=${slug}`;
+      } else {
+        location.href = `game.html?puzzle=${slug}`;
+      }
+    }
+
+    function quit() { history.back(); }
+
+    loadPuzzle();
+  </script>
+</body>
+</html>
