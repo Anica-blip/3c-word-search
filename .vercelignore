@@ -1,18 +1,14 @@
 # .vercelignore — 3C Word Search
-# Vercel should ONLY deploy /api folder for OAuth
+# Vercel should ONLY deploy /api/auth folder for OAuth
 # All other content is hosted on GitHub Pages
 
-# Ignore everything except /api
-/*
-!/api
-
-# Ignore all static content directories
-admin/
+# Ignore static content directories (not needed on Vercel)
 public/
 js/
 static/
+admin/
 
-# Ignore static files
+# Ignore static files (not needed on Vercel)
 *.html
 *.css
 *.png
@@ -22,5 +18,10 @@ static/
 *.svg
 *.md
 
-# Keep API folder
-!api/**
+# Ignore non-OAuth API files
+api/puzzles.js
+
+# Only deploy OAuth endpoints
+!api/auth/
+!api/auth/login.js
+!api/auth/callback.js
