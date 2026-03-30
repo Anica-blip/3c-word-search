@@ -19,7 +19,6 @@
     </div>
     <div id="toolbar-right">
       <span id="toolbar-credit">Built by Claude × Chef Anica · 3C Thread To Success</span>
-      <button class="btn-toolbar" onclick="window.location.href='../landing.html'">🏠 Landing Page</button>
       <button class="btn-toolbar" onclick="window._builderUI.newPuzzle()">+ New Puzzle</button>
       <button class="btn-toolbar btn-save" onclick="window._builderUI.save()">💾 Save Puzzle</button>
       <button class="btn-logout" onclick="signOut()" title="Sign out">
@@ -36,30 +35,53 @@
   <!-- ── MAIN ───────────────────────────────────────────── -->
   <div id="app">
 
-    <!-- Puzzle ID -->
+    <!-- ── PUZZLE ID + URL ─────────────────────────────── -->
     <div class="builder-section">
       <div class="section-title">Puzzle ID</div>
-      <span class="slug-badge" id="slug-display">puzzle.01</span>
-      <span style="font-size:12px;color:var(--text-muted);margin-left:10px;">
-        Auto-assigned — edit the title and word list below
-      </span>
+
+      <!-- Slug badge row -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <span class="slug-badge" id="slug-display">puzzle.01</span>
+        <span style="font-size:12px;color:var(--text-muted);">
+          Auto-assigned — edit the title and word list below
+        </span>
+      </div>
+
+      <!-- URL row — hidden until puzzle is saved -->
+      <div id="puzzle-url-wrap" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:0.7px;">
+          Shareable URL:
+        </span>
+        <input type="text" id="puzzle-url-display" readonly
+          style="flex:1;min-width:240px;font-size:11px;background:var(--surface-2);
+                 border:1px solid var(--border-light);color:var(--text-accent);
+                 border-radius:7px;padding:6px 10px;" />
+        <button class="btn-toolbar btn-save" id="copy-url-btn"
+          style="font-size:11px;padding:5px 12px;"
+          onclick="window._builderUI.copyUrl()">Copy URL</button>
+        <a id="open-url-btn" href="#" target="_blank" rel="noopener"
+          class="btn-toolbar" style="font-size:11px;padding:5px 12px;text-decoration:none;">
+          Open ↗
+        </a>
+      </div>
     </div>
 
-    <!-- Title + Word List -->
+    <!-- ── TITLE + WORD LIST ────────────────────────────── -->
     <div class="builder-section row-2">
       <div>
         <label class="field-label" for="puzzle-title">Puzzle Title *</label>
         <input type="text" id="puzzle-title" placeholder="e.g. Core Values" />
-        <div class="field-hint">Shown on the consent/start page</div>
+        <div class="field-hint">Shown on the landing page and consent page</div>
       </div>
       <div>
         <label class="field-label" for="word-list">Word List * (one word per line)</label>
-        <textarea id="word-list" placeholder="FOCUS&#10;GROWTH&#10;MINDSET&#10;ACTION&#10;PURPOSE&#10;VISION"></textarea>
-        <div class="field-hint">Min 2 letters, max 12. Up to 12 words recommended for 12×12 grid.</div>
+        <textarea id="word-list"
+          placeholder="FOCUS&#10;GROWTH&#10;MINDSET&#10;ACTION&#10;PURPOSE&#10;VISION"></textarea>
+        <div class="field-hint">Min 2 letters, max 12. Up to 12 words for a 12×12 grid.</div>
       </div>
     </div>
 
-    <!-- Generate -->
+    <!-- ── GENERATE ─────────────────────────────────────── -->
     <div class="builder-section">
       <div class="section-title">Grid Generator</div>
       <button class="btn-toolbar btn-save" onclick="window._builderUI.generate()"
@@ -72,9 +94,9 @@
       <div id="status-msg"></div>
     </div>
 
-    <!-- Background + Media -->
+    <!-- ── ASSETS ───────────────────────────────────────── -->
     <div class="builder-section">
-      <div class="section-title">Assets (Background Image · Intro · Finale)</div>
+      <div class="section-title">Assets — Background · Intro · Finale</div>
       <div class="row-4">
         <div>
           <label class="field-label">Background Image</label>
@@ -88,40 +110,67 @@
           <label class="upload-btn" for="upload-intro">📁 Upload</label>
           <input type="file" id="upload-intro" accept="image/*,video/*" style="display:none;" />
           <span id="intro-name" class="upload-filename">No file</span>
-          <div class="field-hint">Image or video</div>
+          <div class="field-hint">Image or video (optional)</div>
         </div>
         <div>
           <label class="field-label">Finale Asset</label>
           <label class="upload-btn" for="upload-finale">📁 Upload</label>
           <input type="file" id="upload-finale" accept="image/*,video/*" style="display:none;" />
           <span id="finale-name" class="upload-filename">No file</span>
-          <div class="field-hint">Image or video</div>
+          <div class="field-hint">Image or video (optional)</div>
         </div>
       </div>
     </div>
 
-    <!-- Archive -->
+    <!-- ── ARCHIVE ───────────────────────────────────────── -->
     <div id="puzzle-archive" style="margin-top:36px;">
       <p style="color:var(--text-muted);font-size:13px;">Loading archive...</p>
     </div>
 
     <!-- Footer watermark -->
     <footer class="admin-footer">
-      Built with ❤️ by <strong>Claude (Anthropic)</strong> × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
+      Built with ❤️ by <strong>Claude (Anthropic)</strong> × Chef Anica
+      · 3C Thread To Success Cooking Lab 🧪👨‍🍳
     </footer>
 
   </div>
 
   <script src="./signout.js"></script>
   <script type="module">
-    import { init, generateAndPreview, savePuzzleHandler, newPuzzle } from './builder.js';
+    import {
+      init,
+      generateAndPreview,
+      savePuzzleHandler,
+      newPuzzle,
+      copyPuzzleUrl,
+    } from './builder.js';
 
-    // Bridge for HTML onclick handlers
     window._builderUI = {
-      generate: generateAndPreview,
-      save:     savePuzzleHandler,
+      generate:  generateAndPreview,
+      save:      savePuzzleHandler,
       newPuzzle: newPuzzle,
+      copyUrl:   copyPuzzleUrl,
     };
+
+    // Keep Open ↗ link in sync with URL field
+    const urlField = document.getElementById('puzzle-url-display');
+    const openBtn  = document.getElementById('open-url-btn');
+    if (urlField && openBtn) {
+      new MutationObserver(() => {
+        openBtn.href = urlField.value || '#';
+      }).observe(urlField, { attributes: true, attributeFilter: ['value'] });
+      // Also catch value changes from JS
+      Object.defineProperty(urlField, 'value', {
+        set(v) {
+          HTMLInputElement.prototype.value.__set__?.call(this, v);
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(this, v);
+          if (openBtn) openBtn.href = v || '#';
+        },
+        get() {
+          return Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get.call(this);
+        }
+      });
+    }
 
     document.addEventListener('DOMContentLoaded', init);
   </script>
