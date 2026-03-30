@@ -2,11 +2,13 @@
   "functions": {
     "api/auth/login.js": {
       "memory": 128,
-      "maxDuration": 5
+      "maxDuration": 5,
+      "includeFiles": "api/auth/login.js"
     },
     "api/auth/callback.js": {
       "memory": 128,
-      "maxDuration": 10
+      "maxDuration": 10,
+      "includeFiles": "api/auth/callback.js"
     }
   },
   "routes": [
