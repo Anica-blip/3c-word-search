@@ -12,7 +12,7 @@ import {
   togglePuzzleActive,
 } from './supabaseAPI.js';
 
-// ── Constants ───────────────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────────────
 const GRID_SIZE = 12;
 const DIRS = [
   [0,1],[1,0],[1,1],[0,-1],[-1,0],[-1,-1],[1,-1],[-1,1]
@@ -20,37 +20,49 @@ const DIRS = [
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const { WORKER_URL, PUZZLE_BASE_URL } = window.APP_CONFIG;
 
-// ── State ────────────────────────────────────────────────────────────────────
-let currentSlug     = '';
-let currentGrid     = null;
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentSlug       = '';
+let currentGrid       = null;
 let currentPlacements = [];
-let archive         = [];
+let currentPuzzleUrl  = '';
+let archive           = [];
 let bgFile = null, introFile = null, finaleFile = null;
 let bgUrl  = '',   introUrl  = '',   finaleUrl  = '';
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const titleInput    = () => document.getElementById('puzzle-title');
-const wordInput     = () => document.getElementById('word-list');
-const slugDisplay   = () => document.getElementById('slug-display');
-const gridWrap      = () => document.getElementById('grid-preview');
-const statusEl      = () => document.getElementById('status-msg');
-const archiveEl     = () => document.getElementById('puzzle-archive');
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 export async function init() {
-  archive = await fetchAllPuzzles();
-  currentSlug = generateNextSlug(archive);
-  slugDisplay().textContent = currentSlug;
+  archive      = await fetchAllPuzzles();
+  currentSlug  = generateNextSlug(archive);
+  setSlugDisplay(currentSlug, '');
   renderArchive();
   bindUploads();
 }
 
+// ── Slug + URL display ────────────────────────────────────────────────────────
+function setSlugDisplay(slug, url) {
+  const badge = document.getElementById('slug-display');
+  const urlEl = document.getElementById('puzzle-url-display');
+  const urlWrap = document.getElementById('puzzle-url-wrap');
+
+  if (badge) badge.textContent = slug;
+
+  if (urlEl && urlWrap) {
+    if (url) {
+      urlEl.value = url;
+      urlWrap.style.display = 'flex';
+    } else {
+      urlWrap.style.display = 'none';
+    }
+  }
+}
+
 // ── Status messages ───────────────────────────────────────────────────────────
 function showStatus(msg, type = 'info') {
-  const el = statusEl();
+  const el = document.getElementById('status-msg');
+  if (!el) return;
   el.textContent = msg;
   el.className = `show ${type}`;
-  if (type === 'success') setTimeout(() => el.classList.remove('show'), 4000);
+  if (type === 'success') setTimeout(() => el.classList.remove('show'), 5000);
 }
 
 // ── Word placement algorithm ──────────────────────────────────────────────────
@@ -89,11 +101,10 @@ function generateGrid(wordList) {
         }
       }
     }
-
     if (!placed) showStatus(`⚠ Could not place: ${word}`, 'warning');
   }
 
-  // Fill blanks
+  // Fill blanks with random letters
   for (let r = 0; r < GRID_SIZE; r++)
     for (let c = 0; c < GRID_SIZE; c++)
       if (!grid[r][c]) grid[r][c] = ALPHA[Math.floor(Math.random() * 26)];
@@ -109,7 +120,10 @@ function renderGridPreview(grid, placements) {
       wordCells.add(`${row + i * dr},${col + i * dc}`);
   });
 
-  gridWrap().innerHTML = grid.map((row, r) =>
+  const el = document.getElementById('grid-preview');
+  if (!el) return;
+
+  el.innerHTML = grid.map((row, r) =>
     row.map((l, c) =>
       `<span class="preview-cell${wordCells.has(`${r},${c}`) ? ' preview-word' : ''}">${l}</span>`
     ).join('')
@@ -118,11 +132,7 @@ function renderGridPreview(grid, placements) {
 
 // ── Generate + preview ────────────────────────────────────────────────────────
 export function generateAndPreview() {
-  const words = wordInput().value
-    .split('\n')
-    .map(w => w.trim().toUpperCase().replace(/[^A-Z]/g, ''))
-    .filter(w => w.length >= 2 && w.length <= GRID_SIZE);
-
+  const words = getWordList();
   if (!words.length) { showStatus('Add at least one word (min 2 letters)', 'error'); return; }
 
   const result = generateGrid(words);
@@ -130,13 +140,22 @@ export function generateAndPreview() {
   currentPlacements = result.placements;
 
   renderGridPreview(currentGrid, currentPlacements);
-  showStatus(`Grid generated — ${currentPlacements.length} of ${words.length} words placed`, 'success');
+  showStatus(`✅ Grid generated — ${currentPlacements.length} of ${words.length} words placed`, 'success');
+}
+
+function getWordList() {
+  const ta = document.getElementById('word-list');
+  if (!ta) return [];
+  return ta.value
+    .split('\n')
+    .map(w => w.trim().toUpperCase().replace(/[^A-Z]/g, ''))
+    .filter(w => w.length >= 2 && w.length <= GRID_SIZE);
 }
 
 // ── Media upload to R2 ────────────────────────────────────────────────────────
 async function uploadMedia(file, type) {
   if (!file) return '';
-  const ext = file.name.split('.').pop();
+  const ext      = file.name.split('.').pop();
   const filename = `${type}.${ext}`;
   try {
     const res = await fetch(`${WORKER_URL}/media/${currentSlug}/${filename}`, {
@@ -155,21 +174,20 @@ async function uploadMedia(file, type) {
 
 // ── Save puzzle ───────────────────────────────────────────────────────────────
 export async function savePuzzleHandler() {
-  const title = titleInput().value.trim();
-  if (!title)        { showStatus('Add a puzzle title', 'error'); return; }
-  if (!currentGrid)  { showStatus('Generate the grid first', 'error'); return; }
+  const title = document.getElementById('puzzle-title')?.value.trim();
+  if (!title)       { showStatus('Add a puzzle title', 'error'); return; }
+  if (!currentGrid) { showStatus('Generate the grid first', 'error'); return; }
 
-  const words = wordInput().value
-    .split('\n')
-    .map(w => w.trim().toUpperCase().replace(/[^A-Z]/g, ''))
-    .filter(w => w.length >= 2);
+  const words = getWordList();
 
   showStatus('Uploading media...', 'info');
-  bgUrl    = await uploadMedia(bgFile, 'bg');
-  introUrl = await uploadMedia(introFile, 'intro');
-  finaleUrl= await uploadMedia(finaleFile, 'finale');
+  bgUrl     = bgFile    ? await uploadMedia(bgFile,    'bg')     : bgUrl;
+  introUrl  = introFile ? await uploadMedia(introFile, 'intro')  : introUrl;
+  finaleUrl = finaleFile? await uploadMedia(finaleFile,'finale') : finaleUrl;
 
   showStatus('Saving to R2...', 'info');
+
+  const puzzleUrl  = `${PUZZLE_BASE_URL}?puzzle=${currentSlug}`;
   const puzzleData = {
     puzzle_slug:  currentSlug,
     title,
@@ -187,10 +205,9 @@ export async function savePuzzleHandler() {
     body: JSON.stringify(puzzleData),
   });
 
-  if (!r2Res.ok) { showStatus('R2 save failed', 'error'); return; }
+  if (!r2Res.ok) { showStatus('R2 save failed: ' + await r2Res.text(), 'error'); return; }
 
   showStatus('Saving to Supabase...', 'info');
-  const puzzleUrl = `${PUZZLE_BASE_URL}?puzzle=${currentSlug}`;
   const { error } = await savePuzzle({
     puzzle_slug:  currentSlug,
     title,
@@ -206,7 +223,11 @@ export async function savePuzzleHandler() {
 
   if (error) { showStatus(`Supabase error: ${error.message}`, 'error'); return; }
 
-  showStatus(`✅ Puzzle ${currentSlug} saved!`, 'success');
+  // ── Update UI with saved URL ──────────────────────────────────────────────
+  currentPuzzleUrl = puzzleUrl;
+  setSlugDisplay(currentSlug, puzzleUrl);
+  showStatus(`✅ Puzzle ${currentSlug} saved! URL ready to copy.`, 'success');
+
   archive = await fetchAllPuzzles();
   renderArchive();
 }
@@ -216,59 +237,78 @@ export function newPuzzle() {
   currentSlug       = generateNextSlug(archive);
   currentGrid       = null;
   currentPlacements = [];
+  currentPuzzleUrl  = '';
   bgFile = introFile = finaleFile = null;
   bgUrl  = introUrl  = finaleUrl  = '';
 
-  slugDisplay().textContent = currentSlug;
-  titleInput().value = '';
-  wordInput().value  = '';
-  gridWrap().innerHTML = '';
-  document.getElementById('bg-name').textContent    = 'No file';
-  document.getElementById('intro-name').textContent  = 'No file';
-  document.getElementById('finale-name').textContent = 'No file';
+  setSlugDisplay(currentSlug, '');
+
+  const titleEl = document.getElementById('puzzle-title');
+  const wordEl  = document.getElementById('word-list');
+  const gridEl  = document.getElementById('grid-preview');
+  if (titleEl) titleEl.value = '';
+  if (wordEl)  wordEl.value  = '';
+  if (gridEl)  gridEl.innerHTML = '';
+
+  ['bg-name','intro-name','finale-name'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = 'No file';
+  });
+
   showStatus('', 'info');
 }
 
 // ── Load puzzle for editing ────────────────────────────────────────────────────
 export async function editPuzzle(slug) {
   showStatus(`Loading ${slug}...`, 'info');
-  const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
-  if (!res.ok) { showStatus('Load failed', 'error'); return; }
+  try {
+    const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+    if (!res.ok) throw new Error('Fetch failed');
+    const data = await res.json();
 
-  const data = await res.json();
-  currentSlug       = slug;
-  currentGrid       = data.grid;
-  currentPlacements = data.placements;
+    currentSlug       = slug;
+    currentGrid       = data.grid;
+    currentPlacements = data.placements;
 
-  slugDisplay().textContent = currentSlug;
-  titleInput().value = data.title || '';
-  wordInput().value  = (data.word_list || []).join('\n');
+    // Find puzzle_url from archive
+    const archiveRow = archive.find(p => p.puzzle_slug === slug);
+    currentPuzzleUrl = archiveRow?.puzzle_url || `${PUZZLE_BASE_URL}?puzzle=${slug}`;
+    setSlugDisplay(currentSlug, currentPuzzleUrl);
 
-  bgUrl    = data.bg_image   || '';
-  introUrl = data.intro_asset || '';
-  finaleUrl= data.finale_asset|| '';
+    const titleEl = document.getElementById('puzzle-title');
+    const wordEl  = document.getElementById('word-list');
+    if (titleEl) titleEl.value = data.title || '';
+    if (wordEl)  wordEl.value  = (data.word_list || []).join('\n');
 
-  renderGridPreview(currentGrid, currentPlacements);
-  showStatus(`Loaded ${slug} for editing`, 'success');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+    bgUrl     = data.bg_image    || '';
+    introUrl  = data.intro_asset || '';
+    finaleUrl = data.finale_asset|| '';
+
+    renderGridPreview(currentGrid, currentPlacements);
+    showStatus(`Loaded ${slug} — make changes and click Save Puzzle`, 'success');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    showStatus(`Load failed: ${err.message}`, 'error');
+  }
 }
 
 // ── Delete puzzle ─────────────────────────────────────────────────────────────
 export async function deletePuzzleHandler(slug) {
   if (!confirm(`Delete ${slug}? This cannot be undone.`)) return;
   await deletePuzzle(slug);
-  // Also remove from R2
   await fetch(`${WORKER_URL}/puzzle/${slug}`, { method: 'DELETE' });
   archive = await fetchAllPuzzles();
   renderArchive();
   showStatus(`${slug} deleted`, 'success');
 }
 
-// ── Archive table ─────────────────────────────────────────────────────────────
+// ── Archive table — matches card game style with Open button ──────────────────
 function renderArchive() {
-  const el = archiveEl();
+  const el = document.getElementById('puzzle-archive');
+  if (!el) return;
+
   if (!archive.length) {
-    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No puzzles saved yet.</p>';
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:10px 0;">No puzzles saved yet.</p>';
     return;
   }
 
@@ -289,23 +329,35 @@ function renderArchive() {
       <tbody>
         ${archive.map(p => `
           <tr>
-            <td><button class="btn-toolbar" onclick="window._builder.edit('${p.puzzle_slug}')">Edit</button></td>
-            <td style="font-weight:700;color:var(--accent-light)">${p.puzzle_slug}</td>
+            <td>
+              <button class="btn-toolbar" style="font-size:11px;padding:4px 12px;"
+                onclick="window._builder.edit('${p.puzzle_slug}')">Edit</button>
+            </td>
+            <td style="font-weight:700;color:var(--accent-light);">${p.puzzle_slug}</td>
             <td>${p.title}</td>
             <td>${(p.word_list || []).length}</td>
             <td>
-              <button class="btn-toolbar" style="font-size:11px;"
+              <button class="btn-toolbar" style="font-size:11px;padding:4px 12px;"
                 onclick="window._builder.toggle('${p.puzzle_slug}', ${!p.is_active})">
                 ${p.is_active ? '✅ Active' : '⏸ Paused'}
               </button>
             </td>
-            <td>
+            <td style="display:flex;align-items:center;gap:6px;">
               <input type="text" value="${p.puzzle_url || ''}" readonly
-                style="width:180px;font-size:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:5px;padding:3px 6px;" />
+                style="width:200px;font-size:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:5px;padding:3px 6px;" />
               <button class="btn-toolbar" style="font-size:10px;padding:4px 8px;"
-                onclick="navigator.clipboard.writeText('${p.puzzle_url || ''}')">Copy</button>
+                onclick="navigator.clipboard.writeText('${p.puzzle_url || ''}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='Copy',1500)">
+                Copy
+              </button>
+              <a href="${p.puzzle_url || '#'}" target="_blank" rel="noopener"
+                class="btn-toolbar" style="font-size:10px;padding:4px 8px;text-decoration:none;">
+                Open ↗
+              </a>
             </td>
-            <td><button class="btn-toolbar btn-danger" onclick="window._builder.del('${p.puzzle_slug}')">✕</button></td>
+            <td>
+              <button class="btn-toolbar btn-danger" style="font-size:11px;padding:4px 10px;"
+                onclick="window._builder.del('${p.puzzle_slug}')">✕</button>
+            </td>
           </tr>
         `).join('')}
       </tbody>
@@ -316,16 +368,30 @@ function renderArchive() {
 // ── File upload bindings ──────────────────────────────────────────────────────
 function bindUploads() {
   const bind = (inputId, nameId, setter) => {
-    document.getElementById(inputId).addEventListener('change', (e) => {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    el.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       setter(file);
-      document.getElementById(nameId).textContent = file.name;
+      const nameEl = document.getElementById(nameId);
+      if (nameEl) nameEl.textContent = file.name;
     });
   };
   bind('upload-bg',     'bg-name',     f => bgFile    = f);
   bind('upload-intro',  'intro-name',  f => introFile  = f);
   bind('upload-finale', 'finale-name', f => finaleFile = f);
+}
+
+// Copy URL button handler
+export function copyPuzzleUrl() {
+  const el = document.getElementById('puzzle-url-display');
+  if (!el || !el.value) return;
+  navigator.clipboard.writeText(el.value)
+    .then(() => {
+      const btn = document.getElementById('copy-url-btn');
+      if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy URL', 1500); }
+    });
 }
 
 // ── Expose to window for HTML onclick handlers ────────────────────────────────
