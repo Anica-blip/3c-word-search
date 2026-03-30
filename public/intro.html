@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>3C Word Search — Intro</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+  <div class="page" id="page">
+    <div class="page-content">
+      <!-- Intro media shown here -->
+      <div id="media-wrap"></div>
+      <div class="glass-card" style="margin-top:12px;">
+        <p class="page-body" style="margin-bottom:16px;" id="intro-text">Get ready...</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="btn btn-primary" onclick="goToGame()">▶ Let's Play</button>
+          <button class="btn btn-ghost" onclick="quit()">Quit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const slug   = params.get('puzzle');
+    const data   = JSON.parse(sessionStorage.getItem('wsPuzzle') || '{}');
+
+    // Background
+    if (data.bg_image) {
+      const img = document.createElement('img');
+      img.src = data.bg_image; img.className = 'bg-img'; img.alt = '';
+      document.getElementById('page').prepend(img);
+    }
+
+    // Intro media
+    if (data.intro_asset) {
+      const wrap = document.getElementById('media-wrap');
+      const ext  = data.intro_asset.split('.').pop().toLowerCase();
+      if (['mp4','webm','mov','ogg'].includes(ext)) {
+        wrap.innerHTML = `<video class="media-asset" autoplay muted playsinline>
+          <source src="${data.intro_asset}"></video>`;
+      } else {
+        wrap.innerHTML = `<img class="media-asset" src="${data.intro_asset}" alt="Intro" />`;
+      }
+    }
+
+    function goToGame() { location.href = `game.html?puzzle=${slug}`; }
+    function quit()     { location.href = `index.html?puzzle=${slug}`; }
+  </script>
+</body>
+</html>
