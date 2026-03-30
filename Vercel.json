@@ -1,23 +1,34 @@
 {
   "functions": {
-    "api/auth/login.js":    { "memory": 128, "maxDuration": 5 },
-    "api/auth/callback.js": { "memory": 128, "maxDuration": 10 }
+    "api/auth/login.js": {
+      "memory": 128,
+      "maxDuration": 5
+    },
+    "api/auth/callback.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/auth/login",
-      "dest": "/api/auth/login.js"
+      "source": "/api/auth/login",
+      "destination": "/api/auth/login.js"
     },
     {
-      "src": "/api/auth/callback",
-      "dest": "/api/auth/callback.js"
+      "source": "/api/auth/callback",
+      "destination": "/api/auth/callback.js"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://anica-blip.github.io/3c-word-search/admin/login.html",
+      "permanent": false
     },
     {
-      "src": "/(.*)",
-      "status": 302,
-      "headers": {
-        "Location": "https://anica-blip.github.io/3c-word-search/$1"
-      }
+      "source": "/:path*",
+      "destination": "https://anica-blip.github.io/3c-word-search/admin/login.html",
+      "permanent": false
     }
   ]
 }
