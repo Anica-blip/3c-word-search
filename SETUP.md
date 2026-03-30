@@ -9,48 +9,52 @@
 
 | Layer | Technology |
 |-------|-----------|
-| **Hosting** | Vercel — `https://3c-word-search.vercel.app` |
-| **Admin Auth** | GitHub OAuth → Vercel API routes (same pattern as 3C Control Center) |
+| **Hosting** | GitHub Pages — `https://anica-blip.github.io/3c-word-search/` |
+| **Admin Auth** | GitHub OAuth → Vercel API routes (OAuth ONLY) |
 | **Database** | Supabase — `word_search_puzzles` table |
 | **File Storage** | Cloudflare R2 → `3c-library-files` bucket, `WordSearch/` folder |
 | **Worker** | Cloudflare Worker — `3c-wordsearch.3c-innertherapy.workers.dev` |
+
+**Important**: Vercel is used **ONLY for OAuth** (`/api/auth/login` and `/api/auth/callback`). All other pages are hosted on GitHub Pages.
 
 ---
 
 ## Repository Structure
 
 ```
-3c-word-search/
-├── index.html               — Root redirect → admin/login.html
+repo root/
+├── worker.js                — Cloudflare Worker source
 ├── style.css                — Public game glassmorphism styles
-├── favicon.png              — Tab icon (add to repo root)
+├── index.html               — Root redirect → admin/login.html
+├── landing.html             — Landing page (if used)
+├── Vercel.json              — Vercel routing config (OAuth only)
+├── SETUP.md                 — This file
+├── README.md
+├── favicon.png              — Tab icon
 │
 ├── admin/
 │   ├── index.html           — Admin puzzle builder (session-guarded)
-│   ├── login.html           — GitHub OAuth login
+│   ├── login.html           — GitHub OAuth login page
+│   ├── signout.html         — Sign out confirmation page
 │   ├── admin.css            — Admin dark purple styles
 │   ├── builder.js           — Word gen + grid algorithm + save logic
 │   ├── supabaseAPI.js       — Supabase table operations
 │   ├── config.js            — Supabase anon key + worker URL (safe to be public)
 │   ├── auth.js              — Client-side session guard
-│   ├── signout.js           — Sign out handler
+│   ├── signout.js           — Sign out function
 │   └── 3C Thread To Success logo.png  — Login page logo
 │
 ├── public/
 │   ├── index.html           — Consent / start page
 │   ├── intro.html           — Intro media page
-│   ├── game.html            — 12×12 word search game
+│   ├── games.html           — 12×12 word search game
 │   └── finale.html          — Finale / completion page
 │
-├── api/
-│   ├── auth/
-│   │   ├── login.js         — Redirects to GitHub OAuth
-│   │   └── callback.js      — Handles callback, validates Anica-blip
-│   └── puzzles.js           — GET/POST/DELETE puzzle CRUD (service role)
-│
-├── worker.js                — Cloudflare Worker source
-├── SETUP.md                 — This file
-└── README.md
+└── api/                     — Vercel serverless functions (OAuth only)
+    ├── auth/
+    │   ├── login.js         — Redirects to GitHub OAuth
+    │   └── callback.js      — Handles callback, validates Anica-blip
+    └── puzzles.js           — (Optional) GET/POST/DELETE puzzle CRUD
 ```
 
 ---
@@ -98,8 +102,10 @@ create policy "Service role full access"
 
 Add to Supabase → Authentication → URL Configuration → Redirect URLs:
 ```
-https://3c-word-search.vercel.app/
+https://anica-blip.github.io/3c-word-search/
 ```
+
+**Note**: Supabase is accessed from GitHub Pages, not Vercel.
 
 ---
 
@@ -140,7 +146,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
 ];
 ```
-Add your Vercel URL if calling worker from Vercel-hosted pages.
+
+**Note**: GitHub Pages is the only production origin needed. Vercel only handles OAuth, not content.
 
 ---
 
@@ -196,25 +203,28 @@ All 4 public pages (`index.html`, `intro.html`, `game.html`, `finale.html`) load
 https://anica-blip.github.io/3c-word-search/public/index.html?puzzle=puzzle.01
 ```
 
-Or via Vercel:
-```
-https://3c-word-search.vercel.app/public/index.html?puzzle=puzzle.01
-```
-
 Share this URL on Telegram / library for members to play.
+
+**Note**: All public game URLs use GitHub Pages. Vercel is not used for game hosting.
 
 ---
 
 ## 7. Admin Workflow
 
-1. Go to `https://3c-word-search.vercel.app/admin/`
-2. Login with GitHub
-3. Enter puzzle title + word list (one word per line)
-4. Upload background image, intro asset, finale asset (optional)
-5. Click **⚡ Generate 12×12 Grid** — preview appears
-6. Click **💾 Save Puzzle** — saves to R2 + Supabase
-7. Copy puzzle URL from the archive table
-8. Share URL with members
+1. Go to `https://anica-blip.github.io/3c-word-search/admin/login.html`
+2. Click **GitHub Access Connection** → redirects to Vercel OAuth
+3. Authorize on GitHub → redirects back to GitHub Pages admin
+4. Enter puzzle title + word list (one word per line)
+5. Upload background image, intro asset, finale asset (optional)
+6. Click **⚡ Generate 12×12 Grid** — preview appears
+7. Click **💾 Save Puzzle** — saves to R2 + Supabase
+8. Copy puzzle URL from the archive table
+9. Share URL with members
+
+**OAuth Flow**:
+- Login page: GitHub Pages
+- OAuth handler: Vercel (`/api/auth/login` → `/api/auth/callback`)
+- Admin panel: GitHub Pages (session stored in localStorage)
 
 ---
 
