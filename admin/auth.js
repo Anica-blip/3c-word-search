@@ -1,5 +1,6 @@
 // admin/auth.js — 3C Word Search
 // GitHub OAuth session guard — same pattern as 3C Control Center
+// GitHub OAuth is handled server-side via /api/auth/login + /api/auth/callback
 
 (() => {
   if (window.__AUTH_LOADED__) return;
