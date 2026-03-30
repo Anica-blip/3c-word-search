@@ -1,6 +1,5 @@
 // admin/auth.js — 3C Word Search
 // GitHub OAuth session guard — same pattern as 3C Control Center
-// GitHub OAuth is handled server-side via /api/auth/login + /api/auth/callback
 
 (() => {
   if (window.__AUTH_LOADED__) return;
@@ -58,7 +57,7 @@
             server_config:   'Server configuration error.',
             token_failed:    'GitHub token exchange failed.',
             no_token:        'No token received from GitHub.',
-            callback_failed: 'Callback error — check Vercel logs.',
+            callback_failed: 'Callback error — please try again.',
           };
           el.textContent = msgs[err] || `Login failed (${err}).`;
           el.classList.add('show');
