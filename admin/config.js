@@ -1,4 +1,6 @@
 // admin/config.js — 3C Word Search
+// Supabase credentials for this project
+// SUPABASE_SERVICE_ROLE_KEY is stored in Vercel environment variables (server-side only)
 // Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success
 //
 // Architecture:
