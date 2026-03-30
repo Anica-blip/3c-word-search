@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>3C Word Search — 3C Thread To Success</title>
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="3C Word Search" />
+  <meta property="og:description" content="Can you find all the hidden words? A word search challenge is waiting for you." />
+  <meta property="og:image"       content="https://files.3c-public-library.org/WordSearch/og-preview.png" />
+  <meta property="og:type"        content="website" />
+  <meta property="og:site_name"   content="3C Thread To Success" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="3C Word Search" />
+  <meta name="twitter:description" content="Can you find all the hidden words?" />
+  <meta name="twitter:image"       content="https://files.3c-public-library.org/WordSearch/og-preview.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; }
+
+    body {
+      background: #0a0714;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Open Sans', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── DEVICE CONTAINER — portrait 9:16 ── */
+    .device {
+      position: relative;
+      width: min(390px, 56.25vh);
+      height: min(844px, 100vh);
+      aspect-ratio: 9 / 16;
+      background: #1a0b2e;
+      border-radius: clamp(0px, 2vw, 28px);
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1.5px rgba(124,58,237,0.35),
+        0 30px 80px rgba(0,0,0,0.7);
+    }
+
+    @media (max-width: 480px) {
+      body { align-items: flex-start; background: #0a0714; }
+      .device {
+        width: 100vw; height: 100dvh;
+        border-radius: 0; box-shadow: none;
+        aspect-ratio: unset;
+      }
+    }
+
+    /* ── MEDIA LAYER ── */
+    .media-wrap {
+      position: absolute; inset: 0; z-index: 0;
+    }
+    .media-wrap img,
+    .media-wrap video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block; position: absolute; inset: 0;
+    }
+
+    /* gradient overlay — keeps button readable */
+    .media-overlay {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(
+        to bottom,
+        rgba(10,7,20,0.05) 0%,
+        rgba(10,7,20,0.62) 100%
+      );
+    }
+
+    /* ── FALLBACK — no R2 image yet ── */
+    .media-fallback {
+      position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse at 50% 40%, #2d1b4e 0%, #0a0714 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; padding: 32px;
+    }
+    .fallback-brand {
+      font-size: 0.72rem; color: rgba(168,85,247,0.8);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      text-align: center;
+    }
+    .fallback-title {
+      font-size: clamp(1.1rem, 4vw, 1.4rem);
+      font-weight: 800; color: #e2d9f3;
+      text-align: center; line-height: 1.4;
+    }
+    .fallback-divider {
+      width: 60%; height: 1px;
+      background: rgba(124,58,237,0.4);
+    }
+
+    /* ── CONTENT LAYER ── */
+    .landing-content {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 8%; width: 100%;
+    }
+
+    /* ── ENTER BUTTON ── */
+    .btn-enter {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: #fff;
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+      border: none; border-radius: 50px;
+      padding: 15px 54px;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(124,58,237,0.55);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .btn-enter:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.75);
+    }
+    .btn-enter:active { transform: scale(0.97); }
+
+    /* ── LOADING ── */
+    #loadingState {
+      position: absolute; inset: 0; z-index: 10;
+      background: #0a0714;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Open Sans', sans-serif;
+      color: #a855f7; font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    /* ── ERROR ── */
+    #errorState {
+      display: none; position: absolute; inset: 0; z-index: 10;
+      background: #0a0714; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; padding: 32px; text-align: center;
+    }
+    #errorState strong {
+      font-family: 'Open Sans', sans-serif;
+      color: #a855f7; font-size: 0.95rem;
+    }
+    #errorState p {
+      color: rgba(196,181,245,0.6);
+      font-size: 0.82rem; line-height: 1.6;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="device" id="device">
+
+  <!-- Loading -->
+  <div id="loadingState">Loading…</div>
+
+  <!-- Error -->
+  <div id="errorState">
+    <strong>Puzzle not found</strong>
+    <p>This link may be invalid or the puzzle has been removed.</p>
+  </div>
+
+  <!-- Fallback branded background (no R2 image yet) -->
+  <div class="media-fallback" id="mediaFallback" style="display:none;">
+    <span class="fallback-brand">3C Thread To Success</span>
+    <div class="fallback-divider"></div>
+    <span class="fallback-title" id="fallbackTitle">Word Search Challenge</span>
+    <span style="font-size:0.75rem;color:rgba(168,85,247,0.6);letter-spacing:0.08em;">Find all the hidden words</span>
+  </div>
+
+  <!-- Media layer: image or video from R2 -->
+  <div class="media-wrap"    id="mediaWrap"    style="display:none;"></div>
+  <div class="media-overlay" id="mediaOverlay" style="display:none;"></div>
+
+  <!-- ENTER button -->
+  <div class="landing-content" id="landingContent" style="display:none;">
+    <button class="btn-enter" id="btnEnter">ENTER</button>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   landing.html — 3C Word Search
+   ────────────────────────────────────────────────────
+   1. Reads ?puzzle= slug from URL
+   2. Fetches puzzle JSON from R2 via worker
+   3. Loads bg_image into container
+   4. ENTER → public/index.html?puzzle={slug}
+   Built by Claude (Anthropic) × Chef Anica
+   3C Thread To Success Cooking Lab 🧪👨‍🍳
+═══════════════════════════════════════════════════ */
+
+  const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
+  const PUBLIC_APP = 'public/index.html';
+
+  function getSlug() {
+    return new URLSearchParams(location.search).get('puzzle');
+  }
+
+  function isVideo(url) {
+    return /\.(mp4|webm|mov|ogg)$/i.test(url || '');
+  }
+
+  function showError() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display   = 'flex';
+  }
+
+  function showLanding(slug, puzzleData) {
+    document.getElementById('loadingState').style.display = 'none';
+
+    const title  = puzzleData?.title || 'Word Search Challenge';
+    const bgUrl  = puzzleData?.bg_image || '';
+
+    if (bgUrl) {
+      if (isVideo(bgUrl)) {
+        const v = document.createElement('video');
+        v.autoplay = true; v.muted = true;
+        v.loop = true; v.playsInline = true;
+        const s = document.createElement('source');
+        s.src = bgUrl; s.type = 'video/mp4';
+        v.appendChild(s);
+        document.getElementById('mediaWrap').appendChild(v);
+        document.getElementById('mediaWrap').style.display    = 'block';
+        document.getElementById('mediaOverlay').style.display = 'block';
+      } else {
+        const img    = new Image();
+        img.onload   = () => {
+          document.getElementById('mediaWrap').appendChild(img);
+          document.getElementById('mediaWrap').style.display    = 'block';
+          document.getElementById('mediaOverlay').style.display = 'block';
+        };
+        img.onerror  = () => {
+          document.getElementById('fallbackTitle').textContent  = title;
+          document.getElementById('mediaFallback').style.display = 'flex';
+          document.getElementById('mediaOverlay').style.display  = 'block';
+        };
+        img.src = bgUrl;
+        img.alt = title;
+      }
+    } else {
+      // No bg_image set — show branded fallback
+      document.getElementById('fallbackTitle').textContent   = title;
+      document.getElementById('mediaFallback').style.display = 'flex';
+      document.getElementById('mediaOverlay').style.display  = 'block';
+    }
+
+    // Show ENTER button
+    document.getElementById('landingContent').style.display = 'flex';
+    document.getElementById('btnEnter').onclick = () => {
+      // Store puzzle data so consent page doesn't need to re-fetch
+      sessionStorage.setItem('wsPuzzle', JSON.stringify(puzzleData || {}));
+      location.href = `${PUBLIC_APP}?puzzle=${encodeURIComponent(slug)}`;
+    };
+  }
+
+  // ── Init ──────────────────────────────────────────
+  (function init() {
+    const slug = getSlug();
+    if (!slug) { showError(); return; }
+
+    fetch(`${WORKER_URL}/puzzle/${slug}`)
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
+      .then(data  => showLanding(slug, data))
+      .catch(()   => showLanding(slug, null)); // show landing even if fetch fails
+  })();
+</script>
+
+</body>
+</html>
