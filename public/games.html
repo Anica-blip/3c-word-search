@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>3C Word Search</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="stylesheet" href="../style.css" />
+  <style>
+    body { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .game-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; }
+  </style>
+</head>
+<body>
+  <!-- Background injected by JS -->
+  <div class="page" style="padding:8px;">
+
+    <!-- Top bar: quit left, counter right -->
+    <div class="game-topbar">
+      <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="quitGame()">✕ Quit</button>
+      <div class="counter-badge" id="counter">0 / 0 found</div>
+    </div>
+
+    <!-- 12×12 Grid -->
+    <div class="grid-container" id="grid"></div>
+
+    <!-- Continue button — hidden until all words found -->
+    <div class="game-actions">
+      <button class="btn btn-success" id="continue-btn"
+        style="display:none;" onclick="continueGame()">
+        🎉 Continue →
+      </button>
+    </div>
+
+  </div>
+  <div class="watermark">Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success 🧪👨‍🍳</div>
+
+  <script>
+    // ── Data ──────────────────────────────────────────────────────────────────
+    const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
+    const params = new URLSearchParams(location.search);
+    const slug   = params.get('puzzle');
+    let puzzle   = null;
+    let wordList = [];
+    let found    = new Set();
+
+    // ── Load puzzle ───────────────────────────────────────────────────────────
+    async function loadPuzzle() {
+      // Try sessionStorage first (already fetched on consent page)
+      let data = JSON.parse(sessionStorage.getItem('wsPuzzle') || 'null');
+
+      if (!data || data.puzzle_slug !== slug) {
+        // Fetch directly
+        const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+        if (!res.ok) { document.getElementById('grid').textContent = 'Puzzle not found'; return; }
+        data = await res.json();
+        sessionStorage.setItem('wsPuzzle', JSON.stringify(data));
+      }
+
+      puzzle   = data;
+      wordList = (data.word_list || []).map(w => w.toUpperCase());
+
+      // Background
+      if (data.bg_image) {
+        const img = document.createElement('img');
+        img.src = data.bg_image; img.className = 'bg-img'; img.alt = '';
+        document.querySelector('.page').prepend(img);
+      }
+
+      renderGrid(data.grid);
+      updateCounter();
+      attachEvents();
+    }
+
+    // ── Render grid ───────────────────────────────────────────────────────────
+    function renderGrid(grid) {
+      const el = document.getElementById('grid');
+      el.innerHTML = '';
+      grid.forEach((row, r) => {
+        row.forEach((letter, c) => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.textContent = letter;
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          el.appendChild(cell);
+        });
+      });
+    }
+
+    // ── Counter ───────────────────────────────────────────────────────────────
+    function updateCounter() {
+      const el = document.getElementById('counter');
+      el.textContent = `${found.size} / ${wordList.length} found`;
+      if (found.size > 0) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 400);
+      }
+      if (found.size === wordList.length && wordList.length > 0) {
+        document.getElementById('continue-btn').style.display = 'inline-flex';
+      }
+    }
+
+    // ── Pointer events ────────────────────────────────────────────────────────
+    let dragging   = false;
+    let startR     = -1, startC = -1;
+    let currentPath = [];
+
+    function cellAt(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (!el || !el.classList.contains('cell')) return null;
+      return { r: parseInt(el.dataset.r), c: parseInt(el.dataset.c), el };
+    }
+
+    function getLinePath(r1, c1, r2, c2) {
+      const dr = r2 - r1, dc = c2 - c1;
+      if (dr === 0 && dc === 0) return [{ r: r1, c: c1 }];
+      // Must be horizontal, vertical, or 45° diagonal
+      if (dr !== 0 && dc !== 0 && Math.abs(dr) !== Math.abs(dc)) return null;
+      const sr = Math.sign(dr), sc = Math.sign(dc);
+      const steps = Math.max(Math.abs(dr), Math.abs(dc));
+      const path = [];
+      for (let i = 0; i <= steps; i++) path.push({ r: r1 + i * sr, c: c1 + i * sc });
+      return path;
+    }
+
+    function getCellEl(r, c) {
+      return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+    }
+
+    function clearSelecting() {
+      document.querySelectorAll('.cell.selecting').forEach(el => el.classList.remove('selecting'));
+    }
+
+    function highlightPath(path) {
+      clearSelecting();
+      path.forEach(({ r, c }) => getCellEl(r, c)?.classList.add('selecting'));
+    }
+
+    function validateSelection(path) {
+      clearSelecting();
+      if (!path.length) return;
+
+      const forward = path.map(({ r, c }) => puzzle.grid[r][c]).join('');
+      const backward = forward.split('').reverse().join('');
+
+      const matched = wordList.find(w => (w === forward || w === backward) && !found.has(w));
+
+      if (matched) {
+        found.add(matched);
+        path.forEach(({ r, c }) => {
+          const el = getCellEl(r, c);
+          el?.classList.remove('selecting');
+          el?.classList.add('found');
+        });
+        updateCounter();
+      } else {
+        // Flash red
+        path.forEach(({ r, c }) => {
+          const el = getCellEl(r, c);
+          el?.classList.add('wrong');
+          setTimeout(() => el?.classList.remove('wrong'), 350);
+        });
+      }
+    }
+
+    function attachEvents() {
+      const grid = document.getElementById('grid');
+
+      grid.addEventListener('pointerdown', (e) => {
+        const cell = cellAt(e.clientX, e.clientY);
+        if (!cell) return;
+        dragging = true;
+        startR = cell.r; startC = cell.c;
+        currentPath = [cell];
+        grid.setPointerCapture(e.pointerId);
+        highlightPath(currentPath);
+        e.preventDefault();
+      });
+
+      grid.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const cell = cellAt(e.clientX, e.clientY);
+        if (!cell) return;
+        const path = getLinePath(startR, startC, cell.r, cell.c);
+        if (path) {
+          currentPath = path;
+          highlightPath(currentPath);
+        }
+        e.preventDefault();
+      });
+
+      grid.addEventListener('pointerup', (e) => {
+        if (!dragging) return;
+        dragging = false;
+        validateSelection(currentPath);
+        currentPath = [];
+        e.preventDefault();
+      });
+
+      grid.addEventListener('pointercancel', () => {
+        dragging = false;
+        clearSelecting();
+        currentPath = [];
+      });
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    function continueGame() {
+      const data = puzzle;
+      if (data.finale_asset) {
+        location.href = `finale.html?puzzle=${slug}`;
+      } else {
+        location.href = `index.html?puzzle=${slug}`;
+      }
+    }
+
+    function quitGame() { location.href = `index.html?puzzle=${slug}`; }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadPuzzle();
+  </script>
+</body>
+</html>
