@@ -4,101 +4,139 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>3C Word Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="../favicon.png" />
-  <link rel="stylesheet" href="../style.css" />
-</head>
-<body>
-  <div class="page" id="page">
-    <!-- Background injected by JS from worker -->
 
-    <div class="page-content">
-      <div class="glass-card" style="text-align:center;">
-        <p class="page-title" id="puzzle-title" style="margin-bottom:10px;">Word Search</p>
-        <p class="page-subtitle" id="word-hint" style="margin-bottom:24px;"></p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" id="play-btn" onclick="startGame()">
-            ▶ Let's Play
-          </button>
-          <button class="btn btn-ghost" onclick="quit()">Quit</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; }
 
-  <script>
-    const params = new URLSearchParams(location.search);
-    const slug   = params.get('puzzle');
+    body {
+      background: #0a0714;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Open Sans', sans-serif;
+      overflow: hidden;
+    }
 
-    // ── Load puzzle data from worker fetch (direct link)
-    const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
+    /* ── DEVICE CONTAINER — portrait 9:16 ── */
+    .device {
+      position: relative;
+      width: min(390px, 56.25vh);
+      height: min(844px, 100vh);
+      aspect-ratio: 9 / 16;
+      background: #1a0b2e;
+      border-radius: clamp(0px, 2vw, 28px);
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1.5px rgba(124,58,237,0.35),
+        0 30px 80px rgba(0,0,0,0.7);
+    }
 
-    async function loadData() {
-      let data = null;
-      const cached = sessionStorage.getItem('wsPuzzle');
-      if (cached) {
-        try { data = JSON.parse(cached); } catch {}
+    @media (max-width: 480px) {
+      body { align-items: flex-start; background: #0a0714; }
+      .device {
+        width: 100vw; height: 100dvh;
+        border-radius: 0; box-shadow: none;
+        aspect-ratio: unset;
       }
+    }
 
-      // If no cache or wrong puzzle, fetch directly
-      if (!data || (slug && data.puzzle_slug !== slug)) {
-        try {
-          const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
-          if (res.ok) {
-            data = await res.json();
-            sessionStorage.setItem('wsPuzzle', JSON.stringify(data));
-          }
-        } catch {}
-      }
+    /* ── SCREEN BASE ── */
+    .screen {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .screen.active { display: flex; opacity: 1; }
+    .screen.fading { opacity: 0; }
 
-      // ── Background ────────────────────────────────────────────────────
-      if (data.bg_image) {
-        const img = document.createElement('img');
-        img.src = data.bg_image;
-        img.className = 'bg-img';
-        img.alt = '';
-        document.getElementById('page').prepend(img);
-      }
+    /* ── MEDIA LAYER ── */
+    .media-wrap {
+      position: absolute; inset: 0; z-index: 0;
+    }
+    .media-wrap img,
+    .media-wrap video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block; position: absolute; inset: 0;
+    }
 
-    /* ── BUTTONS ─────────────────────────────────────── */
-    /* Gold pill — used on Intro (LET'S GO), card NEXT */
+    .media-overlay {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(
+        to bottom,
+        rgba(10,7,20,0.05) 0%,
+        rgba(10,7,20,0.62) 100%
+      );
+    }
+
+    .media-content {
+      position: absolute; inset: 0; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 8%;
+    }
+
+    /* ── GOLD GLOW BUTTONS ── */
     .btn-gold {
       font-family: 'Open Sans', sans-serif;
       font-size: clamp(0.85rem, 2.5vw, 1rem);
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-weight: 800;
+      letter-spacing: 0.18em;
       color: #3B1265;
       background: linear-gradient(135deg, #E2C98A, #C8A96E);
       border: none;
       border-radius: 50px;
-      padding: 14px 52px;
+      padding: 15px 54px;
       cursor: pointer;
-      box-shadow: 0 4px 24px rgba(200,169,110,0.5);
-      transition: transform 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: 
+        0 0 20px rgba(226,201,138,0.6),
+        0 0 40px rgba(200,169,110,0.4),
+        0 4px 24px rgba(200,169,110,0.5);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
-    .btn-gold:hover  { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,169,110,0.65); }
+    .btn-gold:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 0 30px rgba(226,201,138,0.8),
+        0 0 60px rgba(200,169,110,0.6),
+        0 8px 32px rgba(200,169,110,0.7);
+    }
     .btn-gold:active { transform: scale(0.96); }
 
-    /* Gold outline — used on finale BACK / CLOSE */
+    /* Gold outline — Quit, CLOSE */
     .btn-outline {
       font-family: 'Open Sans', sans-serif;
       font-size: clamp(0.8rem, 2.2vw, 0.92rem);
       font-weight: 700;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       color: #E2C98A;
-      background: rgba(200,169,110,0.10);
+      background: rgba(200,169,110,0.12);
       border: 1.5px solid rgba(200,169,110,0.55);
       border-radius: 50px;
       padding: 12px 36px;
       cursor: pointer;
-      transition: transform 0.16s ease, border-color 0.16s, background 0.16s;
+      box-shadow: 0 0 16px rgba(200,169,110,0.3);
+      transition: transform 0.16s ease, border-color 0.16s, background 0.16s, box-shadow 0.16s;
     }
     .btn-outline:hover {
       transform: translateY(-2px);
       border-color: #C8A96E;
-      background: rgba(200,169,110,0.20);
+      background: rgba(200,169,110,0.22);
+      box-shadow: 0 0 24px rgba(200,169,110,0.5);
     }
+    .btn-outline:active { transform: scale(0.96); }
 
-    /* ── LOADING ─────────────────────────────────────── */
+    /* ── LOADING ── */
     #screen-loading {
       background: #1a0835;
     }
@@ -110,7 +148,7 @@
       animation: pulse 1.8s ease-in-out infinite;
     }
 
-    /* ── ERROR ───────────────────────────────────────── */
+    /* ── ERROR ── */
     #screen-error {
       background: #1a0835;
       padding: 32px;
@@ -128,13 +166,9 @@
       line-height: 1.6;
     }
 
-    /* ══════════════════════════════════════════════════
-       SCREEN: CONSENT
-       Appears first to get user consent for video playback
-       Matches the number page background with gold border
-    ══════════════════════════════════════════════════ */
+    /* ── CONSENT SCREEN ── */
     #screen-consent {
-      background: #1a0a2e;
+      background: radial-gradient(ellipse at center, #2d1b4e 0%, #1a0835 100%);
       gap: 24px;
     }
 
@@ -143,182 +177,186 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: clamp(28px, 8%, 40px);
+      gap: clamp(32px, 8%, 48px);
+      padding: 32px;
     }
 
     .consent-text {
       font-family: 'Cinzel', serif;
-      font-size: clamp(1.4rem, 5vw, 1.8rem);
+      font-size: clamp(1.5rem, 5.5vw, 2rem);
       font-weight: 700;
       color: #E2C98A;
       letter-spacing: 0.08em;
       text-align: center;
+      text-shadow: 0 0 20px rgba(226,201,138,0.4);
     }
 
-    /* ══════════════════════════════════════════════════
-       SCREEN: INTRO
-       Full media fill — same as landing page feel
-       Button: LET'S GO at bottom
-    ══════════════════════════════════════════════════ */
+    /* ── INTRO SCREEN ── */
     #screen-intro {
       background: radial-gradient(ellipse at center, #5A2090 0%, #1a0835 100%);
     }
-    /* ══════════════════════════════════════════════════
-       SCREEN: PICK A WORD
-       Purple branded background (not media fill)
-       Same frame — branded content inside
-    ══════════════════════════════════════════════════ */
-    #screen-pick {
-      background: #1a0a2e;
-      justify-content: space-between;
-      padding: 0 6% 3%;
-      gap: 0;
-      align-items: center;
+
+    /* ── PUZZLE SCREEN ── */
+    #screen-puzzle {
+      background: radial-gradient(ellipse at center, #2d1b4e 0%, #1a0835 100%);
+      padding: 5% 4%;
+      justify-content: flex-start;
+      gap: 20px;
     }
 
-    .pick-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 5%;
-    }
-
-    .pick-logo {
-      width: clamp(32px, 8%, 44px);
-      margin-bottom: 2%;
-    }
-
-    .pick-brand {
-      font-family: 'Open Sans', sans-serif;
-      font-size: clamp(0.6rem, 1.8vw, 0.75rem);
-      color: #00D4FF;
-      letter-spacing: 0.12em;
-      margin-bottom: 5%;
+    .puzzle-header {
       text-align: center;
+      margin-top: 2%;
     }
 
-    /* ── GOLD NUMBER BUTTONS ─────────────────────────── */
-    .num-btn {
-      width: clamp(56px, 15vw, 62px);
-      height: clamp(56px, 15vw, 62px);
-      background: rgba(200,169,110,0.14);
-      border: 2px solid #C8A96E;
-      border-radius: 10px;
-      font-family: 'Open Sans', sans-serif;
-      font-size: 32px;
+    .puzzle-title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
       font-weight: 700;
       color: #E2C98A;
-      cursor: pointer;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .puzzle-subtitle {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.75rem, 2vw, 0.88rem);
+      color: rgba(226,201,138,0.7);
+      letter-spacing: 0.1em;
+    }
+
+    /* Word Search Grid — Transparent Glass Design */
+    .grid-container {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 2px;
+      background: rgba(10,7,20,0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 8px;
+      width: min(92vw, 82vh);
+      height: min(92vw, 82vh);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      touch-action: none;
+      user-select: none;
+    }
+
+    .grid-cell {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.16s ease;
-      box-shadow:
-        0 0 16px rgba(200,169,110,0.4),
-        0 0 32px rgba(200,169,110,0.15),
-        inset 0 0 12px rgba(200,169,110,0.08);
-    }
-
-    .num-btn:hover {
-      background: rgba(226,201,138,0.22);
-      border-color: #E2C98A;
-      color: #fff;
-      box-shadow:
-        0 0 24px rgba(200,169,110,0.65),
-        0 0 48px rgba(200,169,110,0.25),
-        inset 0 0 16px rgba(200,169,110,0.12);
-      transform: translateY(-2px);
-    }
-
-    .num-btn:active,
-    .num-btn.selected {
-      background: linear-gradient(135deg, #E2C98A, #C8A96E);
-      border-color: #E2C98A;
-      color: #3B1265;
-      box-shadow:
-        0 0 32px rgba(200,169,110,0.85),
-        0 0 64px rgba(200,169,110,0.35);
-      transform: scale(0.95);
-    }
-
-    /* ══════════════════════════════════════════════════
-       SCREEN: PUZZLE 
-       NEXT button appears after all words found
-    ══════════════════════════════════════════════════ */
-
-    /* NEXT button — appears after completing the game, pushed to bottom */
-    .next-btn-wrap {
-      position: absolute;
-      bottom: 3%;
-      left: 0; right: 0;
-      display: none;
-      justify-content: center;
-      z-index: 5;
-    }
-    .next-btn-wrap.visible { display: flex; }
-
-    /* Back to pick */
-    .card-back-btn {
-      position: absolute;
-      top: 3%;
-      left: 4%;
-      z-index: 10;
-      background: rgba(200,169,110,0.18);
-      border: 1px solid rgba(200,169,110,0.40);
-      border-radius: 50px;
-      padding: 6px 16px;
       font-family: 'Open Sans', sans-serif;
-      font-size: clamp(0.68rem, 1.8vw, 0.78rem);
-      font-weight: 600;
+      font-size: clamp(10px, 2.5vmin, 18px);
+      font-weight: 700;
       color: #E2C98A;
+      border-radius: 4px;
       cursor: pointer;
-      transition: background 0.18s;
-      letter-spacing: 0.05em;
+      transition: background 0.08s;
+      border: 1px solid transparent;
     }
-    .card-back-btn:hover { background: rgba(200,169,110,0.32); }
 
-    /* Mobile: Maintain 16:9 aspect ratio */
+    .grid-cell:hover {
+      background: rgba(226,201,138,0.15);
+    }
 
-    /* ══════════════════════════════════════════════════
-       SCREEN: FINALE
-       Video fills frame
-       BACK (to intro) + CLOSE buttons at bottom
-    ══════════════════════════════════════════════════ */
+    .grid-cell.selected {
+      background: rgba(226,201,138,0.45);
+      border-color: rgba(226,201,138,0.5);
+      color: #fff;
+    }
+
+    .grid-cell.found {
+      background: rgba(34,197,94,0.35);
+      border-color: rgba(34,197,94,0.5);
+      color: #fff;
+      pointer-events: none;
+    }
+
+    @media (orientation: portrait) {
+      .grid-container {
+        width: min(96vw, 70vh);
+        height: min(96vw, 70vh);
+      }
+    }
+
+    /* Word List */
+    .word-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      padding: 0 12px;
+    }
+
+    .word-item {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.7rem, 1.8vw, 0.82rem);
+      font-weight: 600;
+      color: rgba(226,201,138,0.6);
+      padding: 6px 14px;
+      background: rgba(200,169,110,0.1);
+      border-radius: 20px;
+      border: 1px solid rgba(200,169,110,0.3);
+      letter-spacing: 0.08em;
+      transition: all 0.2s ease;
+    }
+
+    .word-item.found {
+      color: #86efac;
+      background: rgba(34,197,94,0.2);
+      border-color: rgba(34,197,94,0.4);
+      text-decoration: line-through;
+    }
+
+    /* Puzzle Buttons */
+    .puzzle-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: auto;
+      padding-bottom: 3%;
+    }
+
+
+    /* ── FINALE SCREEN ── */
     #screen-finale {
       background: #1a0835;
     }
 
     .finale-buttons {
       display: flex;
-      gap: 14px;
+      gap: 16px;
       flex-wrap: wrap;
       justify-content: center;
     }
 
-    /* ── ANIMATIONS ──────────────────────────────────── */
+    /* ── ANIMATIONS ── */
     @keyframes pulse {
       0%, 100% { opacity: 0.3; }
       50%       { opacity: 0.85; }
     }
-
   </style>
 </head>
 <body>
 
 <div class="device" id="device">
 
-  <!-- ── LOADING ────────────────────────────────────── -->
+  <!-- ── LOADING ── -->
   <div class="screen active" id="screen-loading">
     <span class="loading-text">Loading…</span>
   </div>
 
-  <!-- ── ERROR ──────────────────────────────────── -->
+  <!-- ── ERROR ── -->
   <div class="screen" id="screen-error">
     <strong>Puzzle not found</strong>
-    <p>This link may be invalid<br>or the deck has been removed.</p>
+    <p>This link may be invalid<br>or the puzzle has been removed.</p>
   </div>
 
-  <!-- ── CONSENT ────────────────────────────────────── -->
+  <!-- ── CONSENT SCREEN ── -->
   <div class="screen" id="screen-consent">
     <div class="consent-container">
       <p class="consent-text">Ready to begin?</p>
@@ -326,55 +364,39 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       INTRO SCREEN
-       Media fills frame — same container, same gold border
-       Button: LET'S GO
-  ════════════════════════════════════════════════ -->
+  <!-- ── INTRO SCREEN ── -->
   <div class="screen" id="screen-intro">
-    <div class="media-wrap"    id="introMediaWrap"></div>
+    <div class="media-wrap" id="introMediaWrap"></div>
     <div class="media-overlay"></div>
     <div class="media-content">
       <button class="btn-gold" id="btnStart">LET'S GO</button>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       FIND THE WORD SCREEN
-       Branded purple — square neon number buttons
-       Same frame, same gold border
-  ════════════════════════════════════════════════ -->
-  <div class="screen" id="screen-pick">
-
-    <div class="pick-header">
-      <img
-        class="pick-logo"
-        src="https://Anica-blip/3c-word-search/admin/3C Thread To Success logo.png"
-        alt="3C"
-        onerror="this.style.display='none'"
-      />
-      <p class="pick-brand">3C Thread To Success</p>
+  <!-- ── PUZZLE SCREEN ── -->
+  <div class="screen" id="screen-puzzle">
+    <div class="puzzle-header">
+      <h1 class="puzzle-title" id="puzzleTitle">Word Search</h1>
+      <p class="puzzle-subtitle" id="puzzleSubtitle">Find all the hidden words</p>
     </div>
 
-    <div class="pick-center-section">
-      <div class="pick-prompt-wrap">
-        <p class="pick-prompt">FIND THE WORD</p>
-      </div>
+    <div class="grid-container" id="gridContainer"></div>
 
+    <div class="word-list" id="wordList"></div>
+
+    <div class="puzzle-buttons">
+      <button class="btn-outline" id="btnQuit">Quit</button>
+      <button class="btn-gold" id="btnGoOn" style="display:none;">GO ON</button>
+    </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       FINALE SCREEN
-       Video fills frame — two buttons at bottom
-       BACK → returns to intro
-       CLOSE → closes / returns to landing
-  ════════════════════════════════════════════════ -->
+  <!-- ── FINALE SCREEN ── -->
   <div class="screen" id="screen-finale">
-    <div class="media-wrap"    id="finaleMediaWrap"></div>
+    <div class="media-wrap" id="finaleMediaWrap"></div>
     <div class="media-overlay"></div>
     <div class="media-content">
       <div class="finale-buttons">
-        <button class="btn-gold"    id="btnRestart">BACK</button>
+        <button class="btn-gold" id="btnRestart">BACK</button>
         <button class="btn-outline" id="btnClose">CLOSE</button>
       </div>
     </div>
@@ -387,43 +409,46 @@
    3C Word Search — Public App
    ──────────────────────────────────────────────────
    ONE JSON fetched once → stored in memory as `puzzle`
-   Each screen reads ONLY its own section on activate:
-
-   screen-intro   → puzzle.intro   (image or video URL)
-   screen-pick    → puzzle.game[].id (builds buttons)
-   screen-finale  → puzzle.finale  (image or video URL)
+   
+   JSON structure:
+   {
+     puzzle_slug: 'puzzle.01',
+     title: 'Puzzle Title',
+     word_list: ['WORD1', 'WORD2', ...],
+     grid: [['A','B','C',...], ...],
+     placements: [{word, row, col, dir}, ...],
+     bg_image: 'url',
+     intro_asset: 'url',
+     finale_asset: 'url'
+   }
 ══════════════════════════════════════════════════ */
 
-  const R2_PUBLIC = 'https://files.3c-public-library.org/WordSearch';
-  const WORKER_URL = '3c-wordsearch.3c-innertherapy.workers.dev';
+  const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
 
-  /* ── STATE ──────────────────────────────────────── */
-  let puzzle          = null;
-  let selectedWord  = null;
+  /* ── STATE ── */
+  let puzzle = null;
   let currentScreen = 'screen-loading';
   let userConsented = false;
+  let finaleLoaded = false;
+  let foundWords = new Set();
+  let selectedCells = [];
 
-  /* ── HELPERS ────────────────────────────────────── */
-  function getDeckSlug() {
+  /* ── HELPERS ── */
+  function getPuzzleSlug() {
     return new URLSearchParams(window.location.search).get('puzzle');
-  }
-
-  function hasAutoplayConsent() {
-    return new URLSearchParams(window.location.search).get('autoplay') === '1';
   }
 
   function isVideo(url) {
     return /\.(mp4|webm|mov|ogg)$/i.test(url || '');
   }
 
-  /* ── SCREEN TRANSITION ──────────────────────────── */
+  /* ── SCREEN TRANSITION ── */
   function goTo(id) {
     const from = document.getElementById(currentScreen);
-    const to   = document.getElementById(id);
+    const to = document.getElementById(id);
     if (!from || !to || currentScreen === id) return;
 
-    // Stop any video on the screen we're leaving
-    from.querySelectorAll('video').forEach(v => { v.pause(); });
+    from.querySelectorAll('video').forEach(v => v.pause());
 
     from.classList.add('fading');
     setTimeout(() => {
@@ -431,176 +456,212 @@
       to.classList.add('active');
       currentScreen = id;
       onScreenActivate(id);
-      // Resume video on screen we're entering
-      to.querySelectorAll('video').forEach(v => { v.play().catch(() => {}); });
+      to.querySelectorAll('video').forEach(v => v.play().catch(() => {}));
     }, 400);
   }
 
-  /* ── SCREEN ACTIVATE ────────────────────────────── */
+  /* ── SCREEN ACTIVATE ── */
   function onScreenActivate(id) {
     switch (id) {
       case 'screen-intro':
-        loadMedia('introMediaWrap', puzzle.intro);
+        loadMedia('introMediaWrap', puzzle.intro_asset);
         break;
-      case 'screen-pick':
-        buildNumberGrid(puzzle.cards);
-        break;
-      case 'screen-card':
+      case 'screen-puzzle':
+        buildPuzzleGrid();
         break;
       case 'screen-finale':
         if (!finaleLoaded) {
-          loadMedia('finaleMediaWrap', puzzle.finale);
+          loadMedia('finaleMediaWrap', puzzle.finale_asset);
           finaleLoaded = true;
         }
         break;
     }
   }
 
-  /* ── LOAD MEDIA ─────────────────────────────────── */
+  /* ── LOAD MEDIA ── */
   function loadMedia(wrapId, url) {
     const wrap = document.getElementById(wrapId);
     if (!wrap || !url || wrap.children.length > 0) return;
 
     if (isVideo(url)) {
-      const v       = document.createElement('video');
-      
-      v.autoplay    = true;
-      v.muted       = true; // always start muted for autoplay
-      v.loop        = true;
+      const v = document.createElement('video');
+      v.autoplay = true;
+      v.muted = !userConsented;
+      v.loop = true;
       v.playsInline = true;
-      v.controls    = false;
+      v.controls = false;
       const s = document.createElement('source');
-      s.src   = url;
-      s.type  = 'video/mp4';
+      s.src = url;
+      s.type = 'video/mp4';
       v.appendChild(s);
       wrap.appendChild(v);
-      
-      // If user clicked PLAY on consent screen, unmute after video loads
+
       if (userConsented) {
         v.addEventListener('loadeddata', () => {
           v.muted = false;
-          v.play().catch(() => {
-            // If unmuted play fails, stay muted
-            v.muted = true;
-          });
+          v.play().catch(() => { v.muted = true; });
         }, { once: true });
       }
     } else {
       const img = document.createElement('img');
-      img.src   = url;
-      img.alt   = '';
+      img.src = url;
+      img.alt = '';
       wrap.appendChild(img);
     }
   }
 
-  /* ── GOLD COIN CLICK SOUND (Web Audio API) ──────── */
-  /*
-    Generates a gold coin "ding" sound programmatically.
-    No external audio file needed.
-  */
-  function playClickSound() {
-    try {
-      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type      = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.35, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.25);
-    } catch (e) { /* silent fallback if audio not supported */ }
+  /* ── BUILD PUZZLE GRID ── */
+  function buildPuzzleGrid() {
+    if (!puzzle || !puzzle.grid || !puzzle.word_list) return;
+
+    const container = document.getElementById('gridContainer');
+    const wordListEl = document.getElementById('wordList');
+    const titleEl = document.getElementById('puzzleTitle');
+    const subtitleEl = document.getElementById('puzzleSubtitle');
+
+    if (titleEl) titleEl.textContent = puzzle.title || 'Word Search';
+    if (subtitleEl) subtitleEl.textContent = `Find ${puzzle.word_list.length} words`;
+
+    container.innerHTML = '';
+    wordListEl.innerHTML = '';
+
+    // Build grid
+    puzzle.grid.forEach((row, r) => {
+      row.forEach((letter, c) => {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.textContent = letter;
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.onclick = () => selectCell(r, c);
+        container.appendChild(cell);
+      });
+    });
+
+    // Build word list
+    puzzle.word_list.forEach(word => {
+      const item = document.createElement('div');
+      item.className = 'word-item';
+      item.textContent = word;
+      item.dataset.word = word;
+      wordListEl.appendChild(item);
+    });
   }
 
-  /* ── LOAD FACE MEDIA ────────────────────────────── */
-  function loadFaceMedia(faceEl, url) {
-    if (!url) return;
-    if (isVideo(url)) {
-      const v       = document.createElement('video');
-      v.autoplay    = true;
-      v.muted       = false; // audio on
-      v.loop        = true;
-      v.playsInline = true;
-      const s = document.createElement('source');
-      s.src   = url;
-      s.type  = 'video/mp4';
-      v.appendChild(s);
-      faceEl.appendChild(v);
+  /* ── WORD SEARCH LOGIC ── */
+  function selectCell(row, col) {
+    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+    if (!cell || cell.classList.contains('found')) return;
+
+    if (cell.classList.contains('selected')) {
+      cell.classList.remove('selected');
+      selectedCells = selectedCells.filter(c => !(c.row === row && c.col === col));
     } else {
-      const img = new Image();
-      img.src   = url;
-      faceEl.appendChild(img);
+      cell.classList.add('selected');
+      selectedCells.push({ row, col, letter: cell.textContent });
+      checkWord();
     }
   }
 
-  /* ── RESET ──────────────────────────────────────── */
-  function resetPuzzle() {
-    isFlipped    = false;
-    selectedPuzzle = null;
-    document.getElementById('puzzleScene').classList.remove('flipped');
-    document.getElementById('tapHint').style.display = 'block';
-    document.getElementById('nextBtnWrap').classList.remove('visible');
-    // Clear selected highlight
-    document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+  function checkWord() {
+    if (selectedCells.length < 3) return;
+
+    const word = selectedCells.map(c => c.letter).join('');
+    const reverseWord = word.split('').reverse().join('');
+
+    if (puzzle.word_list.includes(word) || puzzle.word_list.includes(reverseWord)) {
+      const foundWord = puzzle.word_list.includes(word) ? word : reverseWord;
+      if (!foundWords.has(foundWord)) {
+        foundWords.add(foundWord);
+        markWordFound(foundWord);
+        clearSelection();
+        checkCompletion();
+      }
+    }
   }
 
-  /* ── WIRE BUTTONS ───────────────────────────────── */
+  function markWordFound(word) {
+    selectedCells.forEach(({ row, col }) => {
+      const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+      if (cell) cell.classList.add('found');
+    });
+
+    const wordItem = document.querySelector(`[data-word="${word}"]`);
+    if (wordItem) wordItem.classList.add('found');
+  }
+
+  function clearSelection() {
+    document.querySelectorAll('.grid-cell.selected').forEach(c => c.classList.remove('selected'));
+    selectedCells = [];
+  }
+
+  function checkCompletion() {
+    if (foundWords.size === puzzle.word_list.length) {
+      document.getElementById('btnGoOn').style.display = 'inline-block';
+    }
+  }
+
+  function resetPuzzle() {
+    foundWords.clear();
+    selectedCells = [];
+    finaleLoaded = false;
+    document.getElementById('finaleMediaWrap').innerHTML = '';
+    document.getElementById('btnGoOn').style.display = 'none';
+  }
+
+  /* ── WIRE BUTTONS ── */
   function wireButtons() {
-    // Consent → Intro (with user consent for video playback)
     document.getElementById('btnConsent').onclick = () => {
       userConsented = true;
       goTo('screen-intro');
     };
 
-    // Intro → Pick
-    document.getElementById('btnStart').onclick = () => goTo('screen-pick');
+    document.getElementById('btnStart').onclick = () => goTo('screen-puzzle');
 
-    // Puzzle → Play
-    document.getElementById('puzzleScene').onclick = flipCard;
-
-    // Try Again
-    document.getElementById('btnTryAgain').onclick = () => {
-      resetCard();
-      goTo('screen-pick');
+    document.getElementById('btnQuit').onclick = () => {
+      if (confirm('Are you sure you want to quit?')) {
+        window.location.href = `../landing.html?puzzle=${encodeURIComponent(getPuzzleSlug())}`;
+      }
     };
 
-    // NEXT → Finale
-    document.getElementById('btnNext').onclick = () => goTo('screen-finale');
+    document.getElementById('btnGoOn').onclick = () => goTo('screen-finale');
 
-    // BACK → back to Intro
     document.getElementById('btnRestart').onclick = () => {
-      resetCard();
-      finaleLoaded = false;
-      document.getElementById('finaleMediaWrap').innerHTML = '';
+      resetPuzzle();
       goTo('screen-intro');
     };
 
-    // CLOSE → close tab / return to landing
     document.getElementById('btnClose').onclick = () => {
       window.close();
       setTimeout(() => {
-        window.location.href =
-          `../landing.html?deck=${encodeURIComponent(getDeckSlug())}`;
+        window.location.href = `../landing.html?puzzle=${encodeURIComponent(getPuzzleSlug())}`;
       }, 300);
     };
   }
 
-  /* ── INIT ───────────────────────────────────────── */
+  /* ── INIT ── */
   async function init() {
     const slug = getPuzzleSlug();
     if (!slug) { goTo('screen-error'); return; }
 
     try {
-      // Fetch puzzle JSON through Cloudflare Worker (handles CORS)
-      const res = await fetch(`${WORKER_URL}/WordSearch/${slug}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      deck = await res.json();
-      
-      // Puzzle JSON contains R2 public URLs for media
-      // puzzle.intro, puzzle.finale, puzzle.game.back
+      const cached = sessionStorage.getItem('wsPuzzle');
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          if (data.puzzle_slug === slug) {
+            puzzle = data;
+          }
+        } catch {}
+      }
+
+      if (!puzzle) {
+        const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        puzzle = await res.json();
+        sessionStorage.setItem('wsPuzzle', JSON.stringify(puzzle));
+      }
+
       wireButtons();
       goTo('screen-consent');
     } catch (err) {
