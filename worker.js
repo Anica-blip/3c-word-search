@@ -19,7 +19,6 @@
  * R2 key conventions:
  *   WordSearch/{slug}/puzzle.json
  *   WordSearch/{slug}/landing.{ext}    ← via /landing/:slug
- *   WordSearch/{slug}/game.{ext}       ← via /landing/:slug
  *   WordSearch/{slug}/intro.{ext}      ← via /media/:slug/:filename
  *   WordSearch/{slug}/finale.{ext}     ← via /media/:slug/:filename
  *   WordSearch/{slug}/background.{ext} ← via /media/:slug/:filename
