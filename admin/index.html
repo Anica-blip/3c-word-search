@@ -148,20 +148,12 @@
     const urlField = document.getElementById('puzzle-url-display');
     const openBtn  = document.getElementById('open-url-btn');
     if (urlField && openBtn) {
-      new MutationObserver(() => {
+      // Update link when URL field changes
+      urlField.addEventListener('input', () => {
         openBtn.href = urlField.value || '#';
-      }).observe(urlField, { attributes: true, attributeFilter: ['value'] });
-      // Also catch value changes from JS
-      Object.defineProperty(urlField, 'value', {
-        set(v) {
-          HTMLInputElement.prototype.value.__set__?.call(this, v);
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(this, v);
-          if (openBtn) openBtn.href = v || '#';
-        },
-        get() {
-          return Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get.call(this);
-        }
       });
+      // Initial sync
+      openBtn.href = urlField.value || '#';
     }
 
     document.addEventListener('DOMContentLoaded', init);
