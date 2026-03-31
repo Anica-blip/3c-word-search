@@ -1,0 +1,3 @@
+[[r2_buckets]]
+binding = "WORDSEARCH_BUCKET"
+bucket_name = "3c-library-files"
