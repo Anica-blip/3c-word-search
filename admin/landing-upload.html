@@ -198,12 +198,12 @@
 
     /* ── RIGHT COLUMN CONTENT ────────────────── */
 
-    /* Landscape preview for mobile-first background */
+    /* 9:16 preview */
     #previewWrap {
       display: none;
       position: relative;
       width: 100%;
-      max-width: 100%;
+      max-width: 240px;
       margin: 0 auto;
       border-radius: 10px;
       overflow: hidden;
@@ -212,7 +212,7 @@
     #previewWrap::before {
       content: '';
       display: block;
-      padding-top: 56.25%; /* 16:9 landscape aspect ratio */
+      padding-top: 177.78%;
     }
 
     #previewWrap img,
@@ -229,7 +229,7 @@
     /* Preview placeholder */
     #previewPlaceholder {
       width: 100%;
-      max-width: 360px;
+      max-width: 240px;
       margin: 0 auto;
       aspect-ratio: 9 / 16;
       background: rgba(123,47,190,0.12);
