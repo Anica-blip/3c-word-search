@@ -62,15 +62,16 @@ body {
 #toolbar-title {
   font-family: 'Open Sans', sans-serif;
   font-size: 24px;
-  font-weight: 700;
-  color: var(--purple-neo);
+  font-weight: 800;
+  color: var(--accent-light);
   display: block;
 }
 
 #toolbar-sub {
   font-family: 'Open Sans', sans-serif;
   font-size: 16px;
-  color: var(--purple-neo);
+  font-weight: 700;
+  color: var(--accent-light);
   display: block;
 }
 
