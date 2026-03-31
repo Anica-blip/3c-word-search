@@ -19,7 +19,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ── Fetch all puzzles ──────────────────────────────── */
 /*
-  Returns all rows from card_decks ordered newest first.
+  Returns all rows from word_search_puzzles ordered newest first.
   Used to populate the archive table and the
   landing-upload.html puzzle dropdown.
 */
