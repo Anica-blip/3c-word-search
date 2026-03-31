@@ -1,11 +1,8 @@
 // admin/config.js — 3C Word Search
-// Supabase credentials for this project
-// SUPABASE_SERVICE_ROLE_KEY is stored in Vercel environment variables (server-side only)
 // Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success
 //
 // Architecture:
-//   GitHub Pages → serves admin/, public/, landing.html (the app)
-//   Vercel       → OAuth only (/api/auth/login + /api/auth/callback)
+//   GitHub Pages → serves admin/, public/, landing.html (the app) + OAuth
 //   Cloudflare   → Worker + R2 (puzzle JSON + media storage)
 //   Supabase     → word_search_puzzles table
 
