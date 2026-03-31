@@ -26,7 +26,18 @@ const DIRS = [
   [0,1],[1,0],[1,1],[0,-1],[-1,0],[-1,-1],[1,-1],[-1,1]
 ];
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const { WORKER_URL, PUZZLE_BASE_URL } = window.APP_CONFIG;
+
+// Access config dynamically to ensure it's loaded
+function getConfig() {
+  if (!window.APP_CONFIG) {
+    console.error('APP_CONFIG not loaded! Make sure config.js is loaded before builder.js');
+    return {
+      WORKER_URL: 'https://3c-wordsearch.3c-innertherapy.workers.dev',
+      PUZZLE_BASE_URL: 'https://anica-blip.github.io/3c-word-search/landing.html'
+    };
+  }
+  return window.APP_CONFIG;
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentSlug       = '';
@@ -166,6 +177,7 @@ async function uploadMedia(file, type) {
   const ext      = file.name.split('.').pop();
   const filename = `${type}.${ext}`;
   try {
+    const { WORKER_URL } = getConfig();
     const res = await fetch(`${WORKER_URL}/media/${currentSlug}/${filename}`, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
@@ -195,6 +207,7 @@ export async function savePuzzleHandler() {
 
   showStatus('Saving to R2...', 'info');
 
+  const { PUZZLE_BASE_URL } = getConfig();
   const puzzleUrl  = `${PUZZLE_BASE_URL}?puzzle=${currentSlug}`;
   const puzzleData = {
     puzzle_slug:  currentSlug,
@@ -207,6 +220,7 @@ export async function savePuzzleHandler() {
     finale_asset: finaleUrl,
   };
 
+  const { WORKER_URL } = getConfig();
   const r2Res = await fetch(`${WORKER_URL}/puzzle/${currentSlug}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -270,6 +284,7 @@ export function newPuzzle() {
 export async function editPuzzle(slug) {
   showStatus(`Loading ${slug}...`, 'info');
   try {
+    const { WORKER_URL } = getConfig();
     const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
     if (!res.ok) throw new Error('Fetch failed');
     const data = await res.json();
@@ -304,6 +319,7 @@ export async function editPuzzle(slug) {
 export async function deletePuzzleHandler(slug) {
   if (!confirm(`Delete ${slug}? This cannot be undone.`)) return;
   await deletePuzzle(slug);
+  const { WORKER_URL } = getConfig();
   await fetch(`${WORKER_URL}/puzzle/${slug}`, { method: 'DELETE' });
   archive = await fetchAllPuzzles();
   renderArchive();
