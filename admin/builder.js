@@ -1,6 +1,14 @@
 /**
  * 3C Word Search — Admin Builder Logic
  * Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success
+ * All media loaded from computer — local preview only, never uploaded here.
+ * On Save Puzzle: ONE JSON pushed to R2 via worker with auto-constructed R2 URLs.
+ * Supabase holds the puzzle index (slug, title, url, r2_key).
+ *
+ * JSON fields saved:
+ *   intro   → public/index.html screen-intro  (loaded from computer in admin)
+ *   finale  → public/index.html screen-finale (loaded from computer in admin)
+ *   landing → patched separately by landing-upload.html after upload to R2
  */
 
 import {
@@ -151,6 +159,12 @@ function getWordList() {
     .map(w => w.trim().toUpperCase().replace(/[^A-Z]/g, ''))
     .filter(w => w.length >= 2 && w.length <= GRID_SIZE);
 }
+
+/* ── CONFIG ─────────────────────────────────────────── */
+const WORKER_URL    = '3c-wordsearch.3c-innertherapy.workers.dev';
+const R2_PUBLIC     = 'https://files.3c-public-library.org/WordSearch';
+const PUBLIC_APP    = 'https://anica-blip.github.io/3c-word-search/landing.html';
+const $  = (sel) => document.querySelector(sel);
 
 // ── Media upload to R2 ────────────────────────────────────────────────────────
 async function uploadMedia(file, type) {
