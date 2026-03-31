@@ -9,7 +9,7 @@
 </head>
 <body>
   <div class="page" id="page">
-    <!-- Background injected by JS from sessionStorage -->
+    <!-- Background injected by JS from worker -->
 
     <div class="page-content">
       <div class="glass-card" style="text-align:center;">
@@ -29,8 +29,7 @@
     const params = new URLSearchParams(location.search);
     const slug   = params.get('puzzle');
 
-    // ── Load puzzle data from sessionStorage (set by landing.html on ENTER) ──
-    // Falls back to worker fetch if sessionStorage is empty (direct link)
+    // ── Load puzzle data from worker fetch (direct link)
     const WORKER_URL = 'https://3c-wordsearch.3c-innertherapy.workers.dev';
 
     async function loadData() {
@@ -51,12 +50,6 @@
         } catch {}
       }
 
-      if (!data) {
-        // No data at all — go straight to game and let game.html handle it
-        if (slug) location.href = `game.html?puzzle=${slug}`;
-        return;
-      }
-
       // ── Background ────────────────────────────────────────────────────
       if (data.bg_image) {
         const img = document.createElement('img');
@@ -66,30 +59,558 @@
         document.getElementById('page').prepend(img);
       }
 
-      // ── Title + word count hint ────────────────────────────────────────
-      const titleEl = document.getElementById('puzzle-title');
-      const hintEl  = document.getElementById('word-hint');
-      if (titleEl) titleEl.textContent = data.title || 'Word Search';
+    /* ── BUTTONS ─────────────────────────────────────── */
+    /* Gold pill — used on Intro (LET'S GO), card NEXT */
+    .btn-gold {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #3B1265;
+      background: linear-gradient(135deg, #E2C98A, #C8A96E);
+      border: none;
+      border-radius: 50px;
+      padding: 14px 52px;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(200,169,110,0.5);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .btn-gold:hover  { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,169,110,0.65); }
+    .btn-gold:active { transform: scale(0.96); }
 
-      const wc = (data.word_list || []).length;
-      if (hintEl && wc > 0) {
-        hintEl.textContent = `Find ${wc} hidden word${wc !== 1 ? 's' : ''} in the grid`;
-      }
+    /* Gold outline — used on finale BACK / CLOSE */
+    .btn-outline {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.8rem, 2.2vw, 0.92rem);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #E2C98A;
+      background: rgba(200,169,110,0.10);
+      border: 1.5px solid rgba(200,169,110,0.55);
+      border-radius: 50px;
+      padding: 12px 36px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s, background 0.16s;
+    }
+    .btn-outline:hover {
+      transform: translateY(-2px);
+      border-color: #C8A96E;
+      background: rgba(200,169,110,0.20);
     }
 
-    function startGame() {
-      const data = JSON.parse(sessionStorage.getItem('wsPuzzle') || '{}');
-      // If intro asset exists → show intro first
-      if (data.intro_asset) {
-        location.href = `intro.html?puzzle=${encodeURIComponent(slug)}`;
-      } else {
-        location.href = `game.html?puzzle=${encodeURIComponent(slug)}`;
-      }
+    /* ── LOADING ─────────────────────────────────────── */
+    #screen-loading {
+      background: #1a0835;
+    }
+    .loading-text {
+      font-family: 'Cinzel', serif;
+      color: #C8A96E;
+      font-size: clamp(0.75rem, 2vw, 0.88rem);
+      letter-spacing: 0.12em;
+      animation: pulse 1.8s ease-in-out infinite;
     }
 
-    function quit() { history.back(); }
+    /* ── ERROR ───────────────────────────────────────── */
+    #screen-error {
+      background: #1a0835;
+      padding: 32px;
+      text-align: center;
+      gap: 14px;
+    }
+    #screen-error strong {
+      font-family: 'Cinzel', serif;
+      color: #C8A96E;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+    }
+    #screen-error p {
+      color: rgba(255,255,255,0.55);
+      font-size: clamp(0.75rem, 2vw, 0.85rem);
+      line-height: 1.6;
+    }
 
-    loadData();
-  </script>
+    /* ══════════════════════════════════════════════════
+       SCREEN: CONSENT
+       Appears first to get user consent for video playback
+       Matches the number page background with gold border
+    ══════════════════════════════════════════════════ */
+    #screen-consent {
+      background: #1a0a2e;
+      gap: 24px;
+    }
+
+    .consent-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(28px, 8%, 40px);
+    }
+
+    .consent-text {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.4rem, 5vw, 1.8rem);
+      font-weight: 700;
+      color: #E2C98A;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SCREEN: INTRO
+       Full media fill — same as landing page feel
+       Button: LET'S GO at bottom
+    ══════════════════════════════════════════════════ */
+    #screen-intro {
+      background: radial-gradient(ellipse at center, #5A2090 0%, #1a0835 100%);
+    }
+    /* ══════════════════════════════════════════════════
+       SCREEN: PICK A WORD
+       Purple branded background (not media fill)
+       Same frame — branded content inside
+    ══════════════════════════════════════════════════ */
+    #screen-pick {
+      background: #1a0a2e;
+      justify-content: space-between;
+      padding: 0 6% 3%;
+      gap: 0;
+      align-items: center;
+    }
+
+    .pick-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 5%;
+    }
+
+    .pick-logo {
+      width: clamp(32px, 8%, 44px);
+      margin-bottom: 2%;
+    }
+
+    .pick-brand {
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.6rem, 1.8vw, 0.75rem);
+      color: #00D4FF;
+      letter-spacing: 0.12em;
+      margin-bottom: 5%;
+      text-align: center;
+    }
+
+    /* ── GOLD NUMBER BUTTONS ─────────────────────────── */
+    .num-btn {
+      width: clamp(56px, 15vw, 62px);
+      height: clamp(56px, 15vw, 62px);
+      background: rgba(200,169,110,0.14);
+      border: 2px solid #C8A96E;
+      border-radius: 10px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #E2C98A;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.16s ease;
+      box-shadow:
+        0 0 16px rgba(200,169,110,0.4),
+        0 0 32px rgba(200,169,110,0.15),
+        inset 0 0 12px rgba(200,169,110,0.08);
+    }
+
+    .num-btn:hover {
+      background: rgba(226,201,138,0.22);
+      border-color: #E2C98A;
+      color: #fff;
+      box-shadow:
+        0 0 24px rgba(200,169,110,0.65),
+        0 0 48px rgba(200,169,110,0.25),
+        inset 0 0 16px rgba(200,169,110,0.12);
+      transform: translateY(-2px);
+    }
+
+    .num-btn:active,
+    .num-btn.selected {
+      background: linear-gradient(135deg, #E2C98A, #C8A96E);
+      border-color: #E2C98A;
+      color: #3B1265;
+      box-shadow:
+        0 0 32px rgba(200,169,110,0.85),
+        0 0 64px rgba(200,169,110,0.35);
+      transform: scale(0.95);
+    }
+
+    /* ══════════════════════════════════════════════════
+       SCREEN: PUZZLE 
+       NEXT button appears after all words found
+    ══════════════════════════════════════════════════ */
+
+    /* NEXT button — appears after completing the game, pushed to bottom */
+    .next-btn-wrap {
+      position: absolute;
+      bottom: 3%;
+      left: 0; right: 0;
+      display: none;
+      justify-content: center;
+      z-index: 5;
+    }
+    .next-btn-wrap.visible { display: flex; }
+
+    /* Back to pick */
+    .card-back-btn {
+      position: absolute;
+      top: 3%;
+      left: 4%;
+      z-index: 10;
+      background: rgba(200,169,110,0.18);
+      border: 1px solid rgba(200,169,110,0.40);
+      border-radius: 50px;
+      padding: 6px 16px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: clamp(0.68rem, 1.8vw, 0.78rem);
+      font-weight: 600;
+      color: #E2C98A;
+      cursor: pointer;
+      transition: background 0.18s;
+      letter-spacing: 0.05em;
+    }
+    .card-back-btn:hover { background: rgba(200,169,110,0.32); }
+
+    /* Mobile: Maintain 16:9 aspect ratio */
+
+    /* ══════════════════════════════════════════════════
+       SCREEN: FINALE
+       Video fills frame
+       BACK (to intro) + CLOSE buttons at bottom
+    ══════════════════════════════════════════════════ */
+    #screen-finale {
+      background: #1a0835;
+    }
+
+    .finale-buttons {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── ANIMATIONS ──────────────────────────────────── */
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 0.85; }
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="device" id="device">
+
+  <!-- ── LOADING ────────────────────────────────────── -->
+  <div class="screen active" id="screen-loading">
+    <span class="loading-text">Loading…</span>
+  </div>
+
+  <!-- ── ERROR ──────────────────────────────────── -->
+  <div class="screen" id="screen-error">
+    <strong>Puzzle not found</strong>
+    <p>This link may be invalid<br>or the deck has been removed.</p>
+  </div>
+
+  <!-- ── CONSENT ────────────────────────────────────── -->
+  <div class="screen" id="screen-consent">
+    <div class="consent-container">
+      <p class="consent-text">Ready to begin?</p>
+      <button class="btn-gold" id="btnConsent">PLAY</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       INTRO SCREEN
+       Media fills frame — same container, same gold border
+       Button: LET'S GO
+  ════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-intro">
+    <div class="media-wrap"    id="introMediaWrap"></div>
+    <div class="media-overlay"></div>
+    <div class="media-content">
+      <button class="btn-gold" id="btnStart">LET'S GO</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       FIND THE WORD SCREEN
+       Branded purple — square neon number buttons
+       Same frame, same gold border
+  ════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-pick">
+
+    <div class="pick-header">
+      <img
+        class="pick-logo"
+        src="https://Anica-blip/3c-word-search/admin/3C Thread To Success logo.png"
+        alt="3C"
+        onerror="this.style.display='none'"
+      />
+      <p class="pick-brand">3C Thread To Success</p>
+    </div>
+
+    <div class="pick-center-section">
+      <div class="pick-prompt-wrap">
+        <p class="pick-prompt">FIND THE WORD</p>
+      </div>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       FINALE SCREEN
+       Video fills frame — two buttons at bottom
+       BACK → returns to intro
+       CLOSE → closes / returns to landing
+  ════════════════════════════════════════════════ -->
+  <div class="screen" id="screen-finale">
+    <div class="media-wrap"    id="finaleMediaWrap"></div>
+    <div class="media-overlay"></div>
+    <div class="media-content">
+      <div class="finale-buttons">
+        <button class="btn-gold"    id="btnRestart">BACK</button>
+        <button class="btn-outline" id="btnClose">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /device -->
+
+<script>
+/* ══════════════════════════════════════════════════
+   3C Word Search — Public App
+   ──────────────────────────────────────────────────
+   ONE JSON fetched once → stored in memory as `puzzle`
+   Each screen reads ONLY its own section on activate:
+
+   screen-intro   → puzzle.intro   (image or video URL)
+   screen-pick    → puzzle.game[].id (builds buttons)
+   screen-finale  → puzzle.finale  (image or video URL)
+══════════════════════════════════════════════════ */
+
+  const R2_PUBLIC = 'https://files.3c-public-library.org/WordSearch';
+  const WORKER_URL = '3c-wordsearch.3c-innertherapy.workers.dev';
+
+  /* ── STATE ──────────────────────────────────────── */
+  let puzzle          = null;
+  let selectedWord  = null;
+  let currentScreen = 'screen-loading';
+  let userConsented = false;
+
+  /* ── HELPERS ────────────────────────────────────── */
+  function getDeckSlug() {
+    return new URLSearchParams(window.location.search).get('puzzle');
+  }
+
+  function hasAutoplayConsent() {
+    return new URLSearchParams(window.location.search).get('autoplay') === '1';
+  }
+
+  function isVideo(url) {
+    return /\.(mp4|webm|mov|ogg)$/i.test(url || '');
+  }
+
+  /* ── SCREEN TRANSITION ──────────────────────────── */
+  function goTo(id) {
+    const from = document.getElementById(currentScreen);
+    const to   = document.getElementById(id);
+    if (!from || !to || currentScreen === id) return;
+
+    // Stop any video on the screen we're leaving
+    from.querySelectorAll('video').forEach(v => { v.pause(); });
+
+    from.classList.add('fading');
+    setTimeout(() => {
+      from.classList.remove('active', 'fading');
+      to.classList.add('active');
+      currentScreen = id;
+      onScreenActivate(id);
+      // Resume video on screen we're entering
+      to.querySelectorAll('video').forEach(v => { v.play().catch(() => {}); });
+    }, 400);
+  }
+
+  /* ── SCREEN ACTIVATE ────────────────────────────── */
+  function onScreenActivate(id) {
+    switch (id) {
+      case 'screen-intro':
+        loadMedia('introMediaWrap', puzzle.intro);
+        break;
+      case 'screen-pick':
+        buildNumberGrid(puzzle.cards);
+        break;
+      case 'screen-card':
+        break;
+      case 'screen-finale':
+        if (!finaleLoaded) {
+          loadMedia('finaleMediaWrap', puzzle.finale);
+          finaleLoaded = true;
+        }
+        break;
+    }
+  }
+
+  /* ── LOAD MEDIA ─────────────────────────────────── */
+  function loadMedia(wrapId, url) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap || !url || wrap.children.length > 0) return;
+
+    if (isVideo(url)) {
+      const v       = document.createElement('video');
+      
+      v.autoplay    = true;
+      v.muted       = true; // always start muted for autoplay
+      v.loop        = true;
+      v.playsInline = true;
+      v.controls    = false;
+      const s = document.createElement('source');
+      s.src   = url;
+      s.type  = 'video/mp4';
+      v.appendChild(s);
+      wrap.appendChild(v);
+      
+      // If user clicked PLAY on consent screen, unmute after video loads
+      if (userConsented) {
+        v.addEventListener('loadeddata', () => {
+          v.muted = false;
+          v.play().catch(() => {
+            // If unmuted play fails, stay muted
+            v.muted = true;
+          });
+        }, { once: true });
+      }
+    } else {
+      const img = document.createElement('img');
+      img.src   = url;
+      img.alt   = '';
+      wrap.appendChild(img);
+    }
+  }
+
+  /* ── GOLD COIN CLICK SOUND (Web Audio API) ──────── */
+  /*
+    Generates a gold coin "ding" sound programmatically.
+    No external audio file needed.
+  */
+  function playClickSound() {
+    try {
+      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type      = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } catch (e) { /* silent fallback if audio not supported */ }
+  }
+
+  /* ── LOAD FACE MEDIA ────────────────────────────── */
+  function loadFaceMedia(faceEl, url) {
+    if (!url) return;
+    if (isVideo(url)) {
+      const v       = document.createElement('video');
+      v.autoplay    = true;
+      v.muted       = false; // audio on
+      v.loop        = true;
+      v.playsInline = true;
+      const s = document.createElement('source');
+      s.src   = url;
+      s.type  = 'video/mp4';
+      v.appendChild(s);
+      faceEl.appendChild(v);
+    } else {
+      const img = new Image();
+      img.src   = url;
+      faceEl.appendChild(img);
+    }
+  }
+
+  /* ── RESET ──────────────────────────────────────── */
+  function resetPuzzle() {
+    isFlipped    = false;
+    selectedPuzzle = null;
+    document.getElementById('puzzleScene').classList.remove('flipped');
+    document.getElementById('tapHint').style.display = 'block';
+    document.getElementById('nextBtnWrap').classList.remove('visible');
+    // Clear selected highlight
+    document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  /* ── WIRE BUTTONS ───────────────────────────────── */
+  function wireButtons() {
+    // Consent → Intro (with user consent for video playback)
+    document.getElementById('btnConsent').onclick = () => {
+      userConsented = true;
+      goTo('screen-intro');
+    };
+
+    // Intro → Pick
+    document.getElementById('btnStart').onclick = () => goTo('screen-pick');
+
+    // Puzzle → Play
+    document.getElementById('puzzleScene').onclick = flipCard;
+
+    // Try Again
+    document.getElementById('btnTryAgain').onclick = () => {
+      resetCard();
+      goTo('screen-pick');
+    };
+
+    // NEXT → Finale
+    document.getElementById('btnNext').onclick = () => goTo('screen-finale');
+
+    // BACK → back to Intro
+    document.getElementById('btnRestart').onclick = () => {
+      resetCard();
+      finaleLoaded = false;
+      document.getElementById('finaleMediaWrap').innerHTML = '';
+      goTo('screen-intro');
+    };
+
+    // CLOSE → close tab / return to landing
+    document.getElementById('btnClose').onclick = () => {
+      window.close();
+      setTimeout(() => {
+        window.location.href =
+          `../landing.html?deck=${encodeURIComponent(getDeckSlug())}`;
+      }, 300);
+    };
+  }
+
+  /* ── INIT ───────────────────────────────────────── */
+  async function init() {
+    const slug = getPuzzleSlug();
+    if (!slug) { goTo('screen-error'); return; }
+
+    try {
+      // Fetch puzzle JSON through Cloudflare Worker (handles CORS)
+      const res = await fetch(`${WORKER_URL}/WordSearch/${slug}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      deck = await res.json();
+      
+      // Puzzle JSON contains R2 public URLs for media
+      // puzzle.intro, puzzle.finale, puzzle.game.back
+      wireButtons();
+      goTo('screen-consent');
+    } catch (err) {
+      console.error('Puzzle load failed:', err);
+      goTo('screen-error');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+
 </body>
 </html>
