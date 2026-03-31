@@ -284,9 +284,12 @@ export function newPuzzle() {
 export async function editPuzzle(slug) {
   showStatus(`Loading ${slug}...`, 'info');
   try {
-    const { WORKER_URL } = getConfig();
+    const { WORKER_URL, PUZZLE_BASE_URL } = getConfig();
     const res = await fetch(`${WORKER_URL}/puzzle/${slug}`);
-    if (!res.ok) throw new Error('Fetch failed');
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
+    }
     const data = await res.json();
 
     currentSlug       = slug;
