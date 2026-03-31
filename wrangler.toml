@@ -1,3 +1,9 @@
-[[r2_buckets]]
+name = "3c-wordsearch"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# R2 bucket binding
+# bucket_name must match the exact name in your Cloudflare R2 dashboard
+toml[[r2_buckets]]
 binding = "WORDSEARCH_BUCKET"
 bucket_name = "3c-library-files"
