@@ -11,17 +11,25 @@
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* ── CONNECTION ─────────────────────────────────────── */
+const SUPABASE_URL = 'https://cgxjqsbrditbteqhdyus.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ── Fetch all puzzles ──────────────────────────────── */
+/*
+  Returns all rows from card_decks ordered newest first.
+  Used to populate the archive table and the
+  landing-upload.html puzzle dropdown.
+*/
 export async function fetchAllPuzzles() {
   const { data, error } = await supabase
     .from('word_search_puzzles')
     .select('puzzle_slug, title, word_list, puzzle_url, r2_key, is_active, created_at')
-    .order('created_at', { ascending: false });
+    .order('id', { ascending: false });
 
-  if (error) { console.error('fetchAllPuzzles:', error.message); return []; }
+  if (error) { console.error('supabaseAPI.fetchAllPuzzles:', error.message); return []; }
   return data || [];
 }
 
@@ -38,6 +46,20 @@ export function generateNextSlug(archive) {
 }
 
 /* ── Save puzzle (upsert) ───────────────────────────── */
+/*
+  Inserts a new row or updates an existing one
+  if puzzle_slug already exists (onConflict).
+
+  row shape:
+  {
+    puzzle_slug:  'puzzle.01',
+    title:      'title',
+    puzzle_url:   'https://.../landing.html?puzzle=puzzle.01',
+    r2_key:     'WordSearch/puzzle.01/puzzle.json'
+  }
+
+  Returns: { data, error }
+*/
 export async function savePuzzle(row) {
   const { data, error } = await supabase
     .from('word_search_puzzles')
@@ -46,7 +68,7 @@ export async function savePuzzle(row) {
     })
     .select();
 
-  if (error) console.error('savePuzzle:', error.message);
+  if (error) console.error('supabaseAPI.savePuzzle:', error.message);
   return { data, error };
 }
 
@@ -57,7 +79,7 @@ export async function deletePuzzle(slug) {
     .delete()
     .eq('puzzle_slug', slug);
 
-  if (error) console.error('deletePuzzle:', error.message);
+  if (error) console.error('supabaseAPI.deletePuzzle:', error.message);
   return { error };
 }
 
