@@ -160,12 +160,6 @@ function getWordList() {
     .filter(w => w.length >= 2 && w.length <= GRID_SIZE);
 }
 
-/* ── CONFIG ─────────────────────────────────────────── */
-const WORKER_URL    = '3c-wordsearch.3c-innertherapy.workers.dev';
-const R2_PUBLIC     = 'https://files.3c-public-library.org/WordSearch';
-const PUBLIC_APP    = 'https://anica-blip.github.io/3c-word-search/landing.html';
-const $  = (sel) => document.querySelector(sel);
-
 // ── Media upload to R2 ────────────────────────────────────────────────────────
 async function uploadMedia(file, type) {
   if (!file) return '';
