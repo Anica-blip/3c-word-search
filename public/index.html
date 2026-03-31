@@ -169,7 +169,6 @@
     /* ── CONSENT SCREEN ── */
     #screen-consent {
       background: radial-gradient(ellipse at center, #2d1b4e 0%, #1a0835 100%);
-      gap: 24px;
     }
 
     .consent-container {
@@ -179,6 +178,7 @@
       justify-content: center;
       gap: clamp(32px, 8%, 48px);
       padding: 32px;
+      width: 100%;
     }
 
     .consent-text {
@@ -199,9 +199,6 @@
     /* ── PUZZLE SCREEN ── */
     #screen-puzzle {
       background: radial-gradient(ellipse at center, #2d1b4e 0%, #1a0835 100%);
-      padding: 5% 4%;
-      justify-content: flex-start;
-      gap: 20px;
     }
 
     .puzzle-header {
@@ -238,8 +235,10 @@
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 14px;
       padding: 8px;
-      width: min(92vw, 82vh);
-      height: min(92vw, 82vh);
+      width: min(90vw, 600px);
+      height: min(90vw, 600px);
+      max-width: 600px;
+      max-height: 600px;
       box-shadow: 0 8px 40px rgba(0,0,0,0.5);
       touch-action: none;
       user-select: none;
@@ -276,10 +275,19 @@
       pointer-events: none;
     }
 
-    @media (orientation: portrait) {
+    @media (max-width: 480px) {
       .grid-container {
         width: min(96vw, 70vh);
         height: min(96vw, 70vh);
+        max-width: none;
+        max-height: none;
+      }
+    }
+
+    @media (min-width: 481px) and (max-width: 768px) {
+      .grid-container {
+        width: min(85vw, 500px);
+        height: min(85vw, 500px);
       }
     }
 
@@ -358,9 +366,13 @@
 
   <!-- ── CONSENT SCREEN ── -->
   <div class="screen" id="screen-consent">
-    <div class="consent-container">
-      <p class="consent-text">Ready to begin?</p>
-      <button class="btn-gold" id="btnConsent">PLAY</button>
+    <div class="media-wrap" id="consentMediaWrap"></div>
+    <div class="media-overlay"></div>
+    <div class="media-content">
+      <div class="consent-container">
+        <p class="consent-text">Ready to begin?</p>
+        <button class="btn-gold" id="btnConsent">PLAY</button>
+      </div>
     </div>
   </div>
 
@@ -375,18 +387,22 @@
 
   <!-- ── PUZZLE SCREEN ── -->
   <div class="screen" id="screen-puzzle">
-    <div class="puzzle-header">
-      <h1 class="puzzle-title" id="puzzleTitle">Word Search</h1>
-      <p class="puzzle-subtitle" id="puzzleSubtitle">Find all the hidden words</p>
-    </div>
+    <div class="media-wrap" id="puzzleMediaWrap"></div>
+    <div class="media-overlay"></div>
+    <div class="media-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 5% 4%;">
+      <div class="puzzle-header">
+        <h1 class="puzzle-title" id="puzzleTitle">Word Search</h1>
+        <p class="puzzle-subtitle" id="puzzleSubtitle">Find all the hidden words</p>
+      </div>
 
-    <div class="grid-container" id="gridContainer"></div>
+      <div class="grid-container" id="gridContainer"></div>
 
-    <div class="word-list" id="wordList"></div>
+      <div class="word-list" id="wordList"></div>
 
-    <div class="puzzle-buttons">
-      <button class="btn-outline" id="btnQuit">Quit</button>
-      <button class="btn-gold" id="btnGoOn" style="display:none;">GO ON</button>
+      <div class="puzzle-buttons">
+        <button class="btn-outline" id="btnQuit">Quit</button>
+        <button class="btn-gold" id="btnGoOn" style="display:none;">GO ON</button>
+      </div>
     </div>
   </div>
 
@@ -463,10 +479,14 @@
   /* ── SCREEN ACTIVATE ── */
   function onScreenActivate(id) {
     switch (id) {
+      case 'screen-consent':
+        loadMedia('consentMediaWrap', puzzle.bg_image);
+        break;
       case 'screen-intro':
         loadMedia('introMediaWrap', puzzle.intro_asset);
         break;
       case 'screen-puzzle':
+        loadMedia('puzzleMediaWrap', puzzle.bg_image);
         buildPuzzleGrid();
         break;
       case 'screen-finale':
@@ -564,19 +584,19 @@
   }
 
   function checkWord() {
-    if (selectedCells.length < 3) return;
+    if (selectedCells.length < 2) return;
 
     const word = selectedCells.map(c => c.letter).join('');
     const reverseWord = word.split('').reverse().join('');
 
-    if (puzzle.word_list.includes(word) || puzzle.word_list.includes(reverseWord)) {
-      const foundWord = puzzle.word_list.includes(word) ? word : reverseWord;
-      if (!foundWords.has(foundWord)) {
-        foundWords.add(foundWord);
-        markWordFound(foundWord);
-        clearSelection();
-        checkCompletion();
-      }
+    // Check both forward and backward
+    const matchedWord = puzzle.word_list.find(w => w === word || w === reverseWord);
+    
+    if (matchedWord && !foundWords.has(matchedWord)) {
+      foundWords.add(matchedWord);
+      markWordFound(matchedWord);
+      clearSelection();
+      checkCompletion();
     }
   }
 
