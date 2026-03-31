@@ -44,9 +44,6 @@ function corsHeaders(origin) {
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-File-Extension',
   };
-
-  function getMimeType(ext) {
-  return MIME_TYPES[ext.toLowerCase()] || 'application/octet-stream';
 }
 
 function respond(body, status, origin, extraHeaders = {}) {
@@ -60,11 +57,22 @@ function respond(body, status, origin, extraHeaders = {}) {
   });
 }
 
-const MIME = {
-  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
-  gif:'image/gif', webp:'image/webp',
-  mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime',
+/* ── MIME type map ────────────────────────────────── */
+const MIME_TYPES = {
+  png:  'image/png',
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif:  'image/gif',
+  webp: 'image/webp',
+  mp4:  'video/mp4',
+  webm: 'video/webm',
+  mov:  'video/quicktime',
+  ogg:  'video/ogg',
 };
+
+function getMimeType(ext) {
+  return MIME_TYPES[ext.toLowerCase()] || 'application/octet-stream';
+}
 
 /* ── Main fetch handler ───────────────────────────── */
 export default {
@@ -81,33 +89,49 @@ export default {
       });
     }
     
-    /* ── /puzzle/:slug ──────────────────────────────────────── */
-    const puzzleMatch = path.match(/^\/puzzle\/([a-z0-9.\-]+)$/i);
+    /* ── Route: /puzzle/:slug ──────────────────────────────────────── */
+    const puzzleMatch = url.pathname.match(/^\/puzzle\/([a-z0-9.\-]+)$/i);
     if (puzzleMatch) {
       const slug  = puzzleMatch[1];
       const r2Key = `WordSearch/${slug}.json`;
 
+      /* GET /puzzle/:slug */
       if (method === 'GET') {
-        const obj = await env.WORDSEARCH_BUCKET.get(r2Key);
-        if (!obj) return json({ error: `Puzzle not found: ${slug}` }, 404, origin);
-        const text = await obj.text();
-        return new Response(text, {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', ...cors(origin) },
-              },
-            }
+        try {
+          const obj = await env.WORDSEARCH_BUCKET.get(r2Key);
+          if (!obj) {
+            return respond(
+              JSON.stringify({ error: `Puzzle not found: ${slug}` }),
+              404, origin
+            );
+          }
+          const text = await obj.text();
+          return new Response(text, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders(origin),
+            },
+          });
+        } catch (err) {
+          return respond(
+            JSON.stringify({ error: 'R2 read failed', detail: err.message }),
+            500, origin
           );
         }
       }
 
-       if (method === 'PUT') {
+      /* PUT /puzzle/:slug */
+      if (method === 'PUT') {
         try {
-        const body = await req.text();
-        try { JSON.parse(body); } catch { return json({ error: 'Invalid JSON' }, 400, origin); }
-        await env.WORDSEARCH_BUCKET.put(r2Key, body, {
-          httpMetadata: { contentType: 'application/json' },
-        });
-        return json({ ok: true, r2_key: r2Key }, 200, origin);
+          const body = await request.text();
+          JSON.parse(body); // validate JSON before storing
+          await env.WORDSEARCH_BUCKET.put(r2Key, body, {
+            httpMetadata: { contentType: 'application/json' },
+          });
+          return respond(
+            JSON.stringify({ ok: true, r2_key: r2Key }),
+            200, origin
           );
         } catch (err) {
           const isJsonErr = err instanceof SyntaxError;
@@ -122,9 +146,13 @@ export default {
         }
       }
     
+      /* DELETE /puzzle/:slug */
       if (method === 'DELETE') {
-        await env.WORDSEARCH_BUCKET.delete(r2Key);
-        return json({ ok: true, deleted: r2Key }, 200, origin);
+        try {
+          await env.WORDSEARCH_BUCKET.delete(r2Key);
+          return respond(
+            JSON.stringify({ ok: true, deleted: r2Key }),
+            200, origin
           );
         } catch (err) {
           return respond(
@@ -266,8 +294,11 @@ export default {
     /* ── No route matched ───────────────────────────────────── */
     return respond(
       JSON.stringify({
-      error: 'Not found',
-      routes: ['GET/PUT/DELETE /puzzle/:slug', 'PUT /media/:slug/:filename'],
+        error: 'Not found',
+        routes: [
+          'GET/PUT/DELETE /puzzle/:slug',
+          'PUT /landing/:slug',
+          'PUT /media/:slug/:filename'
         ],
       }),
       404, origin
