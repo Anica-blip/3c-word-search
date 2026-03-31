@@ -310,7 +310,7 @@ export async function deletePuzzleHandler(slug) {
   showStatus(`${slug} deleted`, 'success');
 }
 
-// ── Archive table — matches card game style with Open button ──────────────────
+// ── Archive table — matches puzzle style with Open button ──────────────────
 function renderArchive() {
   const el = document.getElementById('puzzle-archive');
   if (!el) return;
