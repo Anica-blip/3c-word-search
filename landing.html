@@ -37,11 +37,13 @@
       overflow: hidden;
     }
 
-    /* ── DEVICE CONTAINER — portrait 9:16 ── */
+    /* ── DEVICE CONTAINER — portrait 9:16 ──
+       FIX: removed explicit height so aspect-ratio drives it on desktop.
+       This prevents the device being too tall on wide screens.
+    */
     .device {
       position: relative;
       width: min(390px, 56.25vh);
-      height: min(844px, 100vh);
       aspect-ratio: 9 / 16;
       background: #1a0b2e;
       border-radius: clamp(0px, 2vw, 28px);
@@ -60,7 +62,7 @@
       }
     }
 
-    /* ── MEDIA LAYER ── */
+    /* ── MEDIA LAYER — background fills device ── */
     .media-wrap {
       position: absolute; inset: 0; z-index: 0;
       overflow: hidden; display: none;
@@ -68,13 +70,6 @@
     .media-wrap img, .media-wrap video {
       width: 100%; height: 100%;
       object-fit: cover; object-position: center;
-    }
-    /* Landing asset layered on top of background */
-    .media-wrap img:nth-child(2),
-    .media-wrap video:nth-child(2) {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
     }
 
     /* gradient overlay — keeps button readable */
@@ -110,7 +105,9 @@
       background: rgba(124,58,237,0.4);
     }
 
-    /* ── LANDING ASSET CONTAINER ── */
+    /* ── LANDING ASSET — sits above background + overlay ──
+       FIX: z-index raised to 2 (was 1 — same as overlay, so it was hidden).
+    */
     .landing-asset-container {
       position: absolute;
       top: 50%;
@@ -119,7 +116,7 @@
       width: 85%;
       max-width: 420px;
       aspect-ratio: 9/16;
-      z-index: 1;
+      z-index: 2;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -132,9 +129,11 @@
       object-position: center;
     }
 
-    /* ── CONTENT LAYER ── */
+    /* ── CONTENT LAYER — ENTER button ──
+       FIX: z-index raised to 3 (was 2 — now above landing asset).
+    */
     .landing-content {
-      position: absolute; inset: 0; z-index: 2;
+      position: absolute; inset: 0; z-index: 3;
       display: flex; flex-direction: column;
       align-items: center; justify-content: flex-end;
       padding-bottom: 8%; width: 100%;
@@ -220,7 +219,7 @@
     <span style="font-size:0.75rem;color:rgba(168,85,247,0.6);letter-spacing:0.08em;">Find all the hidden words</span>
   </div>
 
-  <!-- Media layer: image or video from R2 -->
+  <!-- Media layer: background image or video from R2 -->
   <div class="media-wrap"    id="mediaWrap"    style="display:none;"></div>
   <div class="media-overlay" id="mediaOverlay" style="display:none;"></div>
 
@@ -237,8 +236,9 @@
    ────────────────────────────────────────────────────
    1. Reads ?puzzle= slug from URL
    2. Fetches puzzle JSON from R2 via worker
-   3. Loads bg_image into container
-   4. ENTER → public/index.html?puzzle={slug}
+   3. Loads bg_image as background layer (z-index 0)
+   4. Loads landing as overlay image (z-index 2)
+   5. ENTER → public/index.html?puzzle={slug}
    Built by Claude (Anthropic) × Chef Anica
    3C Thread To Success Cooking Lab 🧪👨‍🍳
 ═══════════════════════════════════════════════════ */
@@ -264,9 +264,11 @@
 
     const title        = puzzleData?.title || 'Word Search Challenge';
     const bgUrl        = puzzleData?.bg_image || '';
-    const landingAsset = puzzleData?.landing_asset || '';
 
-    // Load background image first
+    // FIX: field is "landing" (set by landing-upload.html), not "landing_asset"
+    const landingAsset = puzzleData?.landing || '';
+
+    // ── Load background image / video ──────────────────────────────────────
     if (bgUrl) {
       if (isVideo(bgUrl)) {
         const v = document.createElement('video');
@@ -294,17 +296,17 @@
         img.alt = title;
       }
     } else {
-      // No bg_image set — show branded fallback
+      // No bg_image — show branded fallback
       document.getElementById('fallbackTitle').textContent   = title;
       document.getElementById('mediaFallback').style.display = 'flex';
       document.getElementById('mediaOverlay').style.display  = 'block';
     }
 
-    // Load landing_asset in transparent container if provided
+    // ── Load landing asset on top of background (z-index 2) ───────────────
     if (landingAsset) {
       const container = document.createElement('div');
       container.className = 'landing-asset-container';
-      
+
       if (isVideo(landingAsset)) {
         const v = document.createElement('video');
         v.autoplay = true; v.muted = true;
@@ -328,10 +330,9 @@
       }
     }
 
-    // Show ENTER button
+    // ── Show ENTER button ──────────────────────────────────────────────────
     document.getElementById('landingContent').style.display = 'flex';
     document.getElementById('btnEnter').onclick = () => {
-      // Store puzzle data so consent page doesn't need to re-fetch
       sessionStorage.setItem('wsPuzzle', JSON.stringify(puzzleData || {}));
       location.href = `${PUBLIC_APP}?puzzle=${encodeURIComponent(slug)}`;
     };
@@ -345,7 +346,7 @@
     fetch(`${WORKER_URL}/puzzle/${slug}`)
       .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
       .then(data  => showLanding(slug, data))
-      .catch(()   => showLanding(slug, null)); // show landing even if fetch fails
+      .catch(()   => showLanding(slug, null));
   })();
 </script>
 
