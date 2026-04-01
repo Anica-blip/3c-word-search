@@ -226,10 +226,10 @@
       letter-spacing: 0.1em;
     }
 
-    /* Puzzle Grid Wrapper — Transparent Container */
+    /* Puzzle Grid Wrapper — always relative to device container, never viewport */
     .puzzle-grid-wrapper {
       position: relative;
-      width: min(85vw, 550px);
+      width: 88%;
       aspect-ratio: 1;
       display: flex;
       align-items: center;
@@ -336,26 +336,7 @@
       stroke-width: 2;
     }
 
-    /* Desktop - larger screens */
-    @media (min-width: 1024px) {
-      .puzzle-grid-wrapper {
-        width: min(70vw, 600px);
-      }
-    }
-
-    /* Tablet */
-    @media (min-width: 481px) and (max-width: 1023px) {
-      .puzzle-grid-wrapper {
-        width: min(85vw, 500px);
-      }
-    }
-
-    /* Mobile */
-    @media (max-width: 480px) {
-      .puzzle-grid-wrapper {
-        width: min(92vw, 450px);
-      }
-    }
+    /* Desktop / Tablet / Mobile — grid stays container-relative, no vw overrides needed */
 
     /* Word List */
     .word-list {
