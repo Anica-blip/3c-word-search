@@ -105,17 +105,18 @@
       background: rgba(124,58,237,0.4);
     }
 
-    /* ── LANDING ASSET — sits above background + overlay ──
-       FIX: z-index raised to 2 (was 1 — same as overlay, so it was hidden).
+    /* ── LANDING ASSET — large card, background shows around edges ──
+       92% wide, 88% tall — background peeks around the container.
+       object-fit: contain keeps the PNG proportions intact.
+       z-index: 2 sits above gradient overlay, below ENTER button.
     */
     .landing-asset-container {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 85%;
-      max-width: 420px;
-      aspect-ratio: 9/16;
+      width: 92%;
+      height: 88%;
       z-index: 2;
       display: flex;
       align-items: center;
