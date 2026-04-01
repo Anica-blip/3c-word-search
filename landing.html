@@ -110,6 +110,28 @@
       background: rgba(124,58,237,0.4);
     }
 
+    /* ── LANDING ASSET CONTAINER ── */
+    .landing-asset-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      max-width: 420px;
+      aspect-ratio: 9/16;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .landing-asset-container img,
+    .landing-asset-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+    }
+
     /* ── CONTENT LAYER ── */
     .landing-content {
       position: absolute; inset: 0; z-index: 2;
@@ -278,30 +300,28 @@
       document.getElementById('mediaOverlay').style.display  = 'block';
     }
 
-    // Load landing_asset on top if provided
+    // Load landing_asset in transparent container if provided
     if (landingAsset) {
+      const container = document.createElement('div');
+      container.className = 'landing-asset-container';
+      
       if (isVideo(landingAsset)) {
         const v = document.createElement('video');
         v.autoplay = true; v.muted = true;
         v.loop = true; v.playsInline = true;
-        v.style.position = 'absolute';
-        v.style.inset = '0';
-        v.style.zIndex = '1';
         const s = document.createElement('source');
         s.src = landingAsset; s.type = 'video/mp4';
         v.appendChild(s);
-        document.getElementById('mediaWrap').appendChild(v);
+        container.appendChild(v);
+        document.getElementById('device').appendChild(container);
       } else {
         const img = new Image();
         img.onload = () => {
-          img.style.position = 'absolute';
-          img.style.inset = '0';
-          img.style.zIndex = '1';
-          img.style.width = '100%';
-          img.style.height = '100%';
-          img.style.objectFit = 'cover';
-          img.style.objectPosition = 'center';
-          document.getElementById('mediaWrap').appendChild(img);
+          container.appendChild(img);
+          document.getElementById('device').appendChild(container);
+        };
+        img.onerror = () => {
+          console.error('Failed to load landing asset:', landingAsset);
         };
         img.src = landingAsset;
         img.alt = title;
