@@ -6,8 +6,8 @@
  * Supabase holds the puzzle index (slug, title, url, r2_key).
  *
  * JSON fields saved:
- *   intro   → public/index.html screen-intro  (loaded from computer in admin)
- *   finale  → public/index.html screen-finale (loaded from computer in admin)
+ *   intro   → public/index.html screen-intro  (loaded from computer or R2 URL)
+ *   finale  → public/index.html screen-finale (loaded from computer or R2 URL)
  *   landing → patched separately by landing-upload.html after upload to R2
  */
 
@@ -201,6 +201,7 @@ export async function savePuzzleHandler() {
   const words = getWordList();
 
   showStatus('Uploading media...', 'info');
+  // If a file was selected, upload it — otherwise keep existing URL (from upload or R2 URL input)
   bgUrl     = bgFile    ? await uploadMedia(bgFile,    'bg')     : bgUrl;
   introUrl  = introFile ? await uploadMedia(introFile, 'intro')  : introUrl;
   finaleUrl = finaleFile? await uploadMedia(finaleFile,'finale') : finaleUrl;
@@ -277,6 +278,12 @@ export function newPuzzle() {
     if (el) el.textContent = 'No file';
   });
 
+  // Clear R2 URL inputs
+  const introR2  = document.getElementById('intro-r2-url');
+  const finaleR2 = document.getElementById('finale-r2-url');
+  if (introR2)  introR2.value  = '';
+  if (finaleR2) finaleR2.value = '';
+
   showStatus('', 'info');
 }
 
@@ -310,6 +317,18 @@ export async function editPuzzle(slug) {
     introUrl  = data.intro_asset || '';
     finaleUrl = data.finale_asset|| '';
 
+    // Populate R2 URL inputs with existing asset URLs
+    const introR2  = document.getElementById('intro-r2-url');
+    const finaleR2 = document.getElementById('finale-r2-url');
+    if (introR2)  introR2.value  = introUrl;
+    if (finaleR2) finaleR2.value = finaleUrl;
+
+    // Update filename labels
+    const introName  = document.getElementById('intro-name');
+    const finaleName = document.getElementById('finale-name');
+    if (introName)  introName.textContent  = introUrl  ? `✅ ${introUrl.split('/').pop()}`  : 'No file';
+    if (finaleName) finaleName.textContent = finaleUrl ? `✅ ${finaleUrl.split('/').pop()}` : 'No file';
+
     renderGridPreview(currentGrid, currentPlacements);
     showStatus(`Loaded ${slug} — make changes and click Save Puzzle`, 'success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -329,7 +348,7 @@ export async function deletePuzzleHandler(slug) {
   showStatus(`${slug} deleted`, 'success');
 }
 
-// ── Archive table — matches puzzle style with Open button ──────────────────
+// ── Archive table ─────────────────────────────────────────────────────────────
 function renderArchive() {
   const el = document.getElementById('puzzle-archive');
   if (!el) return;
@@ -408,9 +427,33 @@ function bindUploads() {
   bind('upload-bg',     'bg-name',     f => bgFile    = f);
   bind('upload-intro',  'intro-name',  f => introFile  = f);
   bind('upload-finale', 'finale-name', f => finaleFile = f);
+
+  // ── R2 URL inputs — intro ──────────────────────────
+  const introR2 = document.getElementById('intro-r2-url');
+  if (introR2) {
+    introR2.addEventListener('input', () => {
+      const url = introR2.value.trim();
+      introUrl  = url;
+      introFile = null; // URL takes priority — clear any selected file
+      const nameEl = document.getElementById('intro-name');
+      if (nameEl) nameEl.textContent = url ? `✅ ${url.split('/').pop()}` : 'No file';
+    });
+  }
+
+  // ── R2 URL inputs — finale ─────────────────────────
+  const finaleR2 = document.getElementById('finale-r2-url');
+  if (finaleR2) {
+    finaleR2.addEventListener('input', () => {
+      const url = finaleR2.value.trim();
+      finaleUrl  = url;
+      finaleFile = null; // URL takes priority — clear any selected file
+      const nameEl = document.getElementById('finale-name');
+      if (nameEl) nameEl.textContent = url ? `✅ ${url.split('/').pop()}` : 'No file';
+    });
+  }
 }
 
-// Copy URL button handler
+// ── Copy URL button handler ───────────────────────────────────────────────────
 export function copyPuzzleUrl() {
   const el = document.getElementById('puzzle-url-display');
   if (!el || !el.value) return;
