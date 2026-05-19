@@ -279,8 +279,10 @@ export function newPuzzle() {
   });
 
   // Clear R2 URL inputs
+  const bgR2    = document.getElementById('bg-r2-url');
   const introR2  = document.getElementById('intro-r2-url');
   const finaleR2 = document.getElementById('finale-r2-url');
+  if (bgR2)     bgR2.value     = '';
   if (introR2)  introR2.value  = '';
   if (finaleR2) finaleR2.value = '';
 
@@ -318,14 +320,18 @@ export async function editPuzzle(slug) {
     finaleUrl = data.finale_asset|| '';
 
     // Populate R2 URL inputs with existing asset URLs
+    const bgR2     = document.getElementById('bg-r2-url');
     const introR2  = document.getElementById('intro-r2-url');
     const finaleR2 = document.getElementById('finale-r2-url');
+    if (bgR2)     bgR2.value     = bgUrl;
     if (introR2)  introR2.value  = introUrl;
     if (finaleR2) finaleR2.value = finaleUrl;
 
     // Update filename labels
+    const bgName     = document.getElementById('bg-name');
     const introName  = document.getElementById('intro-name');
     const finaleName = document.getElementById('finale-name');
+    if (bgName)     bgName.textContent     = bgUrl     ? `✅ ${bgUrl.split('/').pop()}`     : 'No file';
     if (introName)  introName.textContent  = introUrl  ? `✅ ${introUrl.split('/').pop()}`  : 'No file';
     if (finaleName) finaleName.textContent = finaleUrl ? `✅ ${finaleUrl.split('/').pop()}` : 'No file';
 
@@ -427,6 +433,18 @@ function bindUploads() {
   bind('upload-bg',     'bg-name',     f => bgFile    = f);
   bind('upload-intro',  'intro-name',  f => introFile  = f);
   bind('upload-finale', 'finale-name', f => finaleFile = f);
+
+  // ── R2 URL inputs — background ────────────────────
+  const bgR2 = document.getElementById('bg-r2-url');
+  if (bgR2) {
+    bgR2.addEventListener('input', () => {
+      const url = bgR2.value.trim();
+      bgUrl  = url;
+      bgFile = null; // URL takes priority — clear any selected file
+      const nameEl = document.getElementById('bg-name');
+      if (nameEl) nameEl.textContent = url ? `✅ ${url.split('/').pop()}` : 'No file';
+    });
+  }
 
   // ── R2 URL inputs — intro ──────────────────────────
   const introR2 = document.getElementById('intro-r2-url');
