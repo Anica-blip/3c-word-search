@@ -124,12 +124,21 @@
       <div class="section-title">Assets — Background · Intro · Finale</div>
       <div class="row-4">
 
-        <!-- BACKGROUND — upload only, no R2 URL needed -->
+        <!-- BACKGROUND — upload or R2 URL -->
         <div>
           <label class="field-label">Background Image</label>
           <label class="upload-btn" for="upload-bg">📁 Upload</label>
           <input type="file" id="upload-bg" accept="image/*" style="display:none;" />
           <span id="bg-name" class="upload-filename">No file</span>
+          <div class="r2-url-row">
+            <span class="r2-or">or paste R2 URL</span>
+            <input
+              type="text"
+              id="bg-r2-url"
+              class="r2-url-input"
+              placeholder="https://files.3c-public-library.org/…"
+            />
+          </div>
           <div class="field-hint">Used on all public pages</div>
         </div>
 
