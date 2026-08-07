@@ -197,6 +197,38 @@
       color: var(--cyan);
     }
 
+    /* ── R2 / CLOUDFLARE URL ROW ─────────────── */
+    .r2-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .r2-or {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .r2-url-input {
+      flex: 1;
+      min-width: 180px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-family: 'Open Sans', sans-serif;
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg-input);
+      color: var(--white);
+      outline: none;
+      transition: border-color 0.16s;
+    }
+    .r2-url-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px rgba(200,169,110,0.15);
+    }
+    .r2-url-input::placeholder { color: var(--text-muted); }
+
     /* ── RIGHT COLUMN CONTENT ────────────────── */
 
     /* 9:16 preview */
@@ -432,10 +464,20 @@
           </p>
           <div class="chosen-file" id="chosenFileName"></div>
         </div>
+        <div class="r2-url-row">
+          <span class="r2-or">or paste Cloudflare URL</span>
+          <input
+            type="text"
+            id="landingR2Url"
+            class="r2-url-input"
+            placeholder="https://files.3c-public-library.org/…"
+          />
+        </div>
         <span class="field-hint">
           This is the first screen users see when they open your shared puzzle link.
           Recommended: Landscape orientation (16:9) for mobile-first design.
-          Each puzzle has its own landing media stored separately in Cloudflare R2.
+          Each puzzle has its own landing media stored separately in Cloudflare R2 —
+          reuse an existing URL instead of re-uploading the same image.
         </span>
       </div>
 
@@ -484,6 +526,11 @@
   const WORKER_URL = window.APP_CONFIG?.WORKER_URL || 'https://3c-wordsearch.3c-innertherapy.workers.dev';
 
   let selectedFile = null;
+  let landingR2UrlValue = '';
+
+  function isVideoUrl(url) {
+    return /\.(mp4|webm|mov|ogg)$/i.test(url || '');
+  }
 
   /* ── Load puzzles ───────────────────────────────── */
   async function loadPuzzles() {
@@ -527,6 +574,12 @@
 
   function setFile(file) {
     selectedFile = file;
+
+    // File takes priority — clear any pasted R2 URL
+    landingR2UrlValue = '';
+    const r2Input = document.getElementById('landingR2Url');
+    if (r2Input) r2Input.value = '';
+
     document.getElementById('chosenFileName').textContent = file.name;
 
     // Show preview in right column
@@ -559,22 +612,103 @@
 
   document.getElementById('puzzleSelect').addEventListener('change', checkReady);
 
+  const r2UrlInput = document.getElementById('landingR2Url');
+  if (r2UrlInput) {
+    r2UrlInput.addEventListener('input', () => {
+      const url = r2UrlInput.value.trim();
+      landingR2UrlValue = url;
+
+      if (url) {
+        // URL takes priority — clear any selected file
+        selectedFile = null;
+        document.getElementById('chosenFileName').textContent = '';
+
+        const placeholder = document.getElementById('previewPlaceholder');
+        const wrap        = document.getElementById('previewWrap');
+        wrap.innerHTML    = '';
+        placeholder.style.display = 'none';
+        wrap.style.display        = 'block';
+
+        if (isVideoUrl(url)) {
+          const v = document.createElement('video');
+          v.src = url;
+          v.autoplay = true;
+          v.muted = true;
+          v.loop = true;
+          v.playsInline = true;
+          v.controls = false;
+          wrap.appendChild(v);
+        } else {
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = 'Preview';
+          wrap.appendChild(img);
+        }
+      }
+
+      checkReady();
+    });
+  }
+
   function checkReady() {
     const slug = document.getElementById('puzzleSelect').value;
-    document.getElementById('btnUpload').disabled = !(slug && selectedFile);
+    document.getElementById('btnUpload').disabled = !(slug && (selectedFile || landingR2UrlValue));
   }
 
   /* ── Upload ───────────────────────────────────── */
   window.uploadLanding = async function() {
     const slug = document.getElementById('puzzleSelect').value;
-    if (!slug || !selectedFile) return;
+    if (!slug || !(selectedFile || landingR2UrlValue)) return;
 
+    document.getElementById('btnUpload').disabled      = true;
+    document.getElementById('resultBlock').style.display = 'none';
+
+    // ── Path A: pasted Cloudflare URL — skip upload, just patch the JSON ──
+    if (!selectedFile && landingR2UrlValue) {
+      const publicUrl = landingR2UrlValue;
+      setStatus('loading', '⏳ Updating puzzle JSON with landing URL…');
+      showProgress(true);
+
+      try {
+        animateProgress(0, 50, 400);
+
+        const getRes = await fetch(`${WORKER_URL}/puzzle/${slug}`);
+        if (!getRes.ok) throw new Error(`Could not fetch puzzle JSON (${getRes.status})`);
+        const puzzleJson = await getRes.json();
+
+        puzzleJson.landing = publicUrl;
+
+        const saveRes = await fetch(`${WORKER_URL}/puzzle/${slug}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(puzzleJson, null, 2),
+        });
+
+        if (!saveRes.ok) throw new Error(`Puzzle JSON update failed (${saveRes.status})`);
+
+        animateProgress(50, 100, 300);
+
+        setTimeout(() => {
+          showProgress(false);
+          setStatus('success', `✅ Done! Puzzle JSON updated with existing Cloudflare URL.`);
+          document.getElementById('resultUrl').value          = publicUrl;
+          document.getElementById('resultBlock').style.display = 'flex';
+          document.getElementById('btnUpload').disabled        = false;
+        }, 350);
+
+      } catch (err) {
+        showProgress(false);
+        setStatus('error', '❌ ' + err.message);
+        document.getElementById('btnUpload').disabled = false;
+      }
+      return;
+    }
+
+    // ── Path B: file selected — upload to R2, then patch the JSON ──
     const ext = selectedFile.name.split('.').pop().toLowerCase();
 
     setStatus('loading', '⏳ Step 1 of 2 — Uploading landing media to R2…');
     showProgress(true);
-    document.getElementById('btnUpload').disabled      = true;
-    document.getElementById('resultBlock').style.display = 'none';
 
     try {
       animateProgress(0, 50, 800);
