@@ -355,6 +355,11 @@ export async function deletePuzzleHandler(slug) {
 }
 
 // ── Archive table ─────────────────────────────────────────────────────────────
+function puzzleNumber(slug) {
+  const m = /(\d+)\s*$/.exec(slug || '');
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 function renderArchive() {
   const el = document.getElementById('puzzle-archive');
   if (!el) return;
@@ -363,6 +368,9 @@ function renderArchive() {
     el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:10px 0;">No puzzles saved yet.</p>';
     return;
   }
+
+  // Highest puzzle number first (last created shows at the top), not alphabetical by title
+  const sortedArchive = [...archive].sort((a, b) => puzzleNumber(b.puzzle_slug) - puzzleNumber(a.puzzle_slug));
 
   el.innerHTML = `
     <h2>Puzzle Archive</h2>
@@ -379,7 +387,7 @@ function renderArchive() {
         </tr>
       </thead>
       <tbody>
-        ${archive.map(p => `
+        ${sortedArchive.map(p => `
           <tr>
             <td>
               <button class="btn-toolbar" style="font-size:11px;padding:4px 12px;"
