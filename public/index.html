@@ -208,7 +208,7 @@
 
     .puzzle-title {
       font-family: 'Cinzel', serif;
-      font-size: clamp(1.2rem, 4vw, 1.6rem);
+      font-size: clamp(1rem, 3vw, 1.3rem);
       font-weight: 700;
       color: #E2C98A;
       letter-spacing: 0.08em;
@@ -221,7 +221,7 @@
 
     .puzzle-subtitle {
       font-family: 'Open Sans', sans-serif;
-      font-size: clamp(0.75rem, 2vw, 0.88rem);
+      font-size: clamp(0.65rem, 1.6vw, 0.78rem);
       color: rgba(226,201,138,0.7);
       letter-spacing: 0.1em;
     }
@@ -229,12 +229,12 @@
     /* Puzzle Grid Wrapper — always relative to device container, never viewport */
     .puzzle-grid-wrapper {
       position: relative;
-      width: 88%;
+      width: 92%;
       aspect-ratio: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 12px auto;
+      margin: 10px auto;
     }
 
     /* Word Search Grid — Transparent Glass Design */
@@ -339,23 +339,26 @@
 
     /* Word List */
     .word-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
-      justify-content: center;
-      padding: 0 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px 8px;
+      padding: 0 10px;
     }
 
     .word-item {
       font-family: 'Open Sans', sans-serif;
-      font-size: clamp(0.7rem, 1.8vw, 0.82rem);
+      font-size: clamp(0.5rem, calc(0.86rem - var(--word-count, 8) * 0.028rem), 0.68rem);
       font-weight: 600;
       color: rgba(226,201,138,0.6);
-      padding: 6px 14px;
+      padding: 5px 6px;
       background: rgba(200,169,110,0.1);
-      border-radius: 20px;
+      border-radius: 14px;
       border: 1px solid rgba(200,169,110,0.3);
-      letter-spacing: 0.08em;
+      letter-spacing: 0.03em;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       transition: all 0.2s ease;
     }
 
@@ -599,6 +602,7 @@
 
     container.innerHTML = '';
     wordListEl.innerHTML = '';
+    wordListEl.style.setProperty('--word-count', puzzle.word_list.length);
 
     // Build grid
     puzzle.grid.forEach((row, r) => {
