@@ -286,7 +286,6 @@
       background: rgba(34,197,94,0.35);
       border-color: rgba(34,197,94,0.5);
       color: #fff;
-      pointer-events: none;
     }
 
     /* Watermark Footer */
@@ -627,7 +626,7 @@
   /* ── WORD SEARCH LOGIC ── */
   function selectCell(row, col) {
     const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-    if (!cell || cell.classList.contains('found')) return;
+    if (!cell) return;
 
     if (cell.classList.contains('selected')) {
       cell.classList.remove('selected');
