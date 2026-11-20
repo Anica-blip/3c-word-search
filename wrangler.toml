@@ -1,9 +1,25 @@
+# wrangler.toml — 3C Word Search Worker
+# 3C Thread To Success™
+#
+# Deployed with Wrangler only (never paste the code into the Cloudflare
+# dashboard — a Wrangler deploy would overwrite it).
+
 name = "3c-wordsearch"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+
+# The free Cloudflare address is how the admin pages and the puzzle pages
+# reach this Worker (WORKER_URL), so it stays on. The preview address is not
+# used by anything and is switched off.
+workers_dev = true
+preview_urls = false
 
 # R2 bucket binding
 # bucket_name must match the exact name in your Cloudflare R2 dashboard
 [[r2_buckets]]
 binding = "WORDSEARCH_BUCKET"
 bucket_name = "3c-library-files"
+
+# No [vars] and no secrets: the owner check uses Supabase's public address and
+# public anon key, which live in worker.js. Sign-in itself happens in the admin
+# pages (GitHub through Supabase), not in this Worker.
