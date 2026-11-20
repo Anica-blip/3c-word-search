@@ -215,7 +215,19 @@
   const FALLBACK_URL = 'https://anica-blip.github.io/3c-word-search/admin/index.html';
   // ─────────────────────────────────────────────────────────────────────────
 
-  const client         = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // This app keeps its own session name (all of Chef's GitHub Pages apps share
+  // one address, anica-blip.github.io). auth-guard.js and admin/supabaseAPI.js
+  // use the same name.
+  const STORAGE_KEY    = 'sb-3c-word-search-login';
+  const client         = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      flowType: 'pkce',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: STORAGE_KEY,
+    },
+  });
   const loadingOverlay = document.getElementById('loadingOverlay');
   const loginCard      = document.getElementById('loginCard');
   const statusMsg      = document.getElementById('statusMsg');
@@ -232,24 +244,55 @@
     statusMsg.className   = 'status-msg' + (cls ? ' ' + cls : '');
   }
 
-  function getNextUrl() {
-    const stored = sessionStorage.getItem('auth_next');
-    if (stored) { sessionStorage.removeItem('auth_next'); return stored; }
-    const param = new URLSearchParams(location.search).get('next');
-    return param ? decodeURIComponent(param) : FALLBACK_URL;
+  // Only addresses inside this app are accepted as the place to go after
+  // sign-in. Anything else (another website) falls back to the admin page.
+  function safeNext(raw) {
+    try {
+      const u = new URL(raw, location.href);
+      if (u.origin === location.origin && u.pathname.startsWith('/3c-word-search/')) return u.href;
+    } catch (e) { /* not an address */ }
+    return null;
   }
 
-  function handleAuthorized(session) {
+  function getNextUrl() {
+    const stored = sessionStorage.getItem('auth_next');
+    if (stored) {
+      sessionStorage.removeItem('auth_next');
+      const ok = safeNext(stored);
+      if (ok) return ok;
+    }
+    const param = new URLSearchParams(location.search).get('next');
+    return (param && safeNext(param)) || FALLBACK_URL;
+  }
+
+  // Signing in is not enough: only the owner gets through. If the owner
+  // check cannot be made (for example no network) nobody is signed out; the
+  // Worker and the database rules are the real gate.
+  let handling = false;
+  async function handleAuthorized(session) {
+    if (handling) return;
+    handling = true;
+    const { data: isOwner, error } = await client.rpc('is_owner');
+    if (!error && isOwner !== true) {
+      await client.auth.signOut();
+      handling = false;
+      showLoginCard('That GitHub account is not authorised for this app.', 'error');
+      return;
+    }
     setTimeout(() => window.location.replace(getNextUrl()), 600);
   }
 
   client.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) handleAuthorized(session);
+    if (event === 'SIGNED_IN' && session) setTimeout(() => handleAuthorized(session), 0);
   });
 
   (async function init() {
     const { data: { session } } = await client.auth.getSession();
     if (session) { handleAuthorized(session); return; }
+    if (new URLSearchParams(location.search).get('reason') === 'notowner') {
+      showLoginCard('That GitHub account is not authorised for this app.', 'error');
+      return;
+    }
     showLoginCard();
   })();
 
@@ -257,7 +300,7 @@
     btnGithub.disabled = true;
     setStatus('Redirecting to GitHub…', 'loading');
     const nextParam = new URLSearchParams(location.search).get('next');
-    if (nextParam) sessionStorage.setItem('auth_next', decodeURIComponent(nextParam));
+    if (nextParam) sessionStorage.setItem('auth_next', nextParam);
     const { error } = await client.auth.signInWithOAuth({
       provider: 'github',
       options:  { redirectTo: REDIRECT_TO }
