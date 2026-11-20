@@ -1,7 +1,8 @@
 # 3C Word Search — SETUP.md
 
 > _Complete setup reference for the 3C Word Search Game._  
-> Built by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
+> Designed and Built with ❤ by Claude (Anthropic) × Chef Anica · 3C Thread To Success™ Cooking Lab 🧪👨‍🍳  
+> Last updated: 20 Nov 2026
 
 ---
 
@@ -10,12 +11,26 @@
 | Layer | Technology |
 |-------|-----------|
 | **Hosting** | GitHub Pages — `https://anica-blip.github.io/3c-word-search/` |
-| **Admin Auth** | GitHub OAuth → Vercel API routes (OAuth ONLY) |
-| **Database** | Supabase — `word_search_puzzles` table |
-| **File Storage** | Cloudflare R2 → `3c-library-files` bucket, `WordSearch/` folder |
+| **Admin sign-in** | GitHub sign-in through Supabase (owner only), project "Aurion 3C Mascot" |
+| **Database** | Supabase — `word_search_puzzles` table (same project) |
+| **File storage** | Cloudflare R2 → `3c-library-files` bucket, `WordSearch/` folder |
 | **Worker** | Cloudflare Worker — `3c-wordsearch.3c-innertherapy.workers.dev` |
 
-**Important**: Vercel is used **ONLY for OAuth** (`/api/auth/login` and `/api/auth/callback`). All other pages are hosted on GitHub Pages.
+**There is no Vercel in this app.** Sign-in goes from the browser straight to Supabase and GitHub. Everything is hosted on GitHub Pages, and the Worker runs on Cloudflare.
+
+---
+
+## How protection works (read this before changing anything)
+
+| Who | What they can do |
+|-----|------------------|
+| Anyone (players) | Open a puzzle page and read a puzzle (`GET /puzzle/:slug` on the Worker, and read the list in Supabase). |
+| The owner only | Save, delete and upload (puzzle files, landing image, media). Every one of these Worker routes needs a valid Supabase sign-in **and** an `is_owner()` check; wrong or missing sign-in is refused. |
+
+- The Worker asks Supabase (`rpc/is_owner`) whether the signed-in person is the owner. It fails closed: if Supabase cannot be reached, nothing is saved.
+- The Worker accepts changes only from `https://anica-blip.github.io`. There are **no** localhost addresses.
+- The Worker holds **no secrets and no variables**. Only the public Supabase address and public anon key are in the code.
+- Sessions are Supabase sessions and refresh themselves. There is no fixed lock-out date.
 
 ---
 
@@ -23,43 +38,42 @@
 
 ```
 repo root/
-├── worker.js                — Cloudflare Worker source
-├── style.css                — Public game glassmorphism styles
-├── index.html               — Root redirect → admin/login.html
-├── landing.html             — Landing page (if used)
-├── Vercel.json              — Vercel routing config (OAuth only)
+├── worker.js                — Cloudflare Worker source (pasted into the Cloudflare editor)
+├── wrangler.toml            — Record of the Worker's settings (NOT used to deploy, see section 2)
+├── style.css                — Public game styles
+├── index.html               — Root redirect → admin/index.html
+├── landing.html             — Public landing page (reads ?puzzle=, then opens public/index.html)
+├── login.html               — Admin sign-in page (GitHub through Supabase)
+├── auth-guard.js            — Page guard: sends signed-out or non-owner visitors to login.html
 ├── SETUP.md                 — This file
 ├── README.md
+├── LEGAL_DISCLAIMER.md
+├── LICENSE
 ├── favicon.png              — Tab icon
 │
 ├── admin/
-│   ├── index.html           — Admin puzzle builder (session-guarded)
-│   ├── login.html           — GitHub OAuth login page
-│   ├── signout.html         — Sign out confirmation page
+│   ├── index.html           — Admin puzzle builder (behind auth-guard.js)
+│   ├── landing-upload.html  — Upload / set the landing image for a puzzle (behind auth-guard.js)
 │   ├── admin.css            — Admin dark purple styles
-│   ├── builder.js           — Word gen + grid algorithm + save logic
-│   ├── supabaseAPI.js       — Supabase table operations
-│   ├── config.js            — Supabase anon key + worker URL (safe to be public)
-│   ├── auth.js              — Client-side session guard
-│   ├── signout.js           — Sign out function
-│   └── 3C Thread To Success logo.png  — Login page logo
+│   ├── builder.js           — Word generation, grid algorithm, save and delete logic
+│   ├── supabaseAPI.js       — Supabase table operations + authHeaders() (adds the sign-in token)
+│   ├── config.js            — Supabase URL, public anon key, Worker URL (safe to be public)
+│   └── 3C Thread To Success logo.png
 │
 ├── public/
-│   ├── index.html           — Consent / start page
-│   ├── intro.html           — Intro media page
-│   ├── games.html           — 12×12 word search game
-│   └── finale.html          — Finale / completion page
+│   └── index.html           — The whole game in one page (loading, consent, intro, puzzle, finale)
 │
-└── api/                     — Vercel serverless functions (OAuth only)
-    ├── auth/
-    │   ├── login.js         — Redirects to GitHub OAuth
-    │   └── callback.js      — Handles callback, validates Anica-blip
-    └── puzzles.js           — (Optional) GET/POST/DELETE puzzle CRUD
+└── api/
+    └── puzzle.js            — Leftover from an earlier design. NOT used by the app.
 ```
+
+**About `api/puzzle.js`:** nothing in the app calls it. It was written for a hosting service the app no longer uses and it uses a Supabase service-role key. It can be deleted. Do not set it up anywhere.
 
 ---
 
 ## 1. Supabase Setup
+
+Project: **Aurion 3C Mascot** (`cgxjqsbrditbteqhdyus`).
 
 ### Table: `word_search_puzzles`
 
@@ -81,44 +95,65 @@ create table word_search_puzzles (
 );
 ```
 
-### RLS Policies
+### Row Level Security (live setup)
 
-```sql
--- Enable RLS
-alter table word_search_puzzles enable row level security;
+RLS is on. Two policies exist:
 
--- Public can read active puzzles (public game page fetches via anon key)
-create policy "Public read active puzzles"
-  on word_search_puzzles for select
-  using (is_active = true);
+- **`word_search_puzzles_select_anon_authenticated`** — anyone can read (SELECT).
+- **`word_search_puzzles_owner_write`** — only the signed-in owner (matched by the account's email) can insert, update or delete.
 
--- Service role has full access (Vercel API uses service role key)
-create policy "Service role full access"
-  on word_search_puzzles for all
-  using (auth.role() = 'service_role');
+No service-role key is used anywhere in this app.
+
+### Sign-in (URL Configuration)
+
+In Supabase → Authentication → URL Configuration → Redirect URLs, this one line covers the whole app:
+
+```
+https://anica-blip.github.io/3c-word-search/**
 ```
 
-### URL Configuration
+GitHub must be enabled as a sign-in provider in the same project (Authentication → Sign In / Providers).
 
-Add to Supabase → Authentication → URL Configuration → Redirect URLs:
-```
-https://anica-blip.github.io/3c-word-search/
-```
-
-**Note**: Supabase is accessed from GitHub Pages, not Vercel.
+Also in Supabase → Authentication → Sessions: **"Time-box user sessions" and "Inactivity timeout" must stay empty**, otherwise a fixed lock-out comes back.
 
 ---
 
 ## 2. Cloudflare Worker Setup
 
 ### Worker name: `3c-wordsearch`
+
+### Deploy method: paste in the Cloudflare dashboard (never Wrangler)
+
+This Worker is updated by pasting `worker.js` into the Cloudflare editor:
+
+1. Cloudflare → Workers & Pages → `3c-wordsearch` → **Edit code**.
+2. Select everything, delete it, paste the full `worker.js`, click **Deploy**.
+
+**Never run `wrangler deploy` for this Worker.** Wrangler replaces the Worker's code and settings with what is in `wrangler.toml` and would overwrite what was pasted. The `wrangler.toml` file in the repo is only a record of the settings. To see how a Worker was last deployed, open its **Deployments** tab; this one says "Manually deployed".
+
 ### R2 Binding
 
-In wrangler.toml or Cloudflare Dashboard → Worker → Settings → Bindings:
+In Cloudflare Dashboard → Worker → Settings → Bindings:
 ```
 Variable name:  WORDSEARCH_BUCKET
 Bucket name:    3c-library-files
 ```
+
+### Variables and Secrets
+
+None. The Worker needs no variables and no secrets. If any appear under Settings → Variables and Secrets, they are leftovers and can be removed.
+
+### Worker routes
+
+| Route | Who | What |
+|-------|-----|------|
+| `GET /puzzle/:slug` | Public | Read a puzzle's JSON |
+| `PUT /puzzle/:slug` | Owner only | Save a puzzle's JSON (JSON object, up to 1 MB) |
+| `DELETE /puzzle/:slug` | Owner only | Delete a puzzle's JSON |
+| `PUT /landing/:slug` | Owner only | Upload the landing image (extension sent in the `X-File-Extension` header) |
+| `PUT /media/:slug/:filename` | Owner only | Upload background, intro or finale media |
+
+Uploads accept only png, jpg, jpeg, gif, webp, mp4, webm, mov and ogg, up to 90 MB each. Anything else is refused.
 
 ### R2 Folder Structure
 ```
@@ -127,68 +162,32 @@ Bucket name:    3c-library-files
     ├── puzzle.01.json
     ├── puzzle.02.json
     └── puzzle.NN/
+        ├── landing.png (or other allowed type)
         ├── bg.png
         ├── intro.png (or .mp4)
         └── finale.png (or .mp4)
 ```
 
-### Deploy worker
-```bash
-wrangler deploy worker.js --name 3c-wordsearch
-```
+Public files are served from `https://files.3c-public-library.org/WordSearch/...`.
 
-### Allowed Origins in worker.js
+### Allowed origin in worker.js
 ```js
-const ALLOWED_ORIGINS = [
-  'https://anica-blip.github.io',
-  'http://localhost:5500',
-  'http://127.0.0.1:5500',
-  'http://localhost:3000',
-];
+const ALLOWED_ORIGINS = ['https://anica-blip.github.io'];
 ```
 
-**Note**: GitHub Pages is the only production origin needed. Vercel only handles OAuth, not content.
+GitHub Pages is the only origin that can make changes.
 
 ---
 
-## 3. GitHub OAuth App
+## 3. Background Image Setup
 
-In GitHub → Settings → Developer Settings → OAuth Apps:
-
-| Field | Value |
-|-------|-------|
-| Homepage URL | `https://3c-word-search.vercel.app` |
-| Authorization callback URL | `https://3c-word-search.vercel.app/api/auth/callback` |
-
-Copy **Client ID** and generate a **Client Secret**.
-
----
-
-## 4. Vercel Environment Variables
-
-In Vercel → Project → Settings → Environment Variables:
-
-```
-GITHUB_CLIENT_ID          = from GitHub OAuth App
-GITHUB_CLIENT_SECRET      = from GitHub OAuth App
-SUPABASE_URL              = https://cgxjqsbrditbteqhdyus.supabase.co
-SUPABASE_ANON_KEY         = (anon key — also in config.js)
-SUPABASE_SERVICE_ROLE_KEY = (service role key — never in repo)
-```
-
-Redeploy after adding env vars.
-
----
-
-## 5. Background Image Setup
-
-All 4 public pages (`index.html`, `intro.html`, `game.html`, `finale.html`) load the background image from the puzzle's `bg_image` field stored in R2.
+The public game page (`public/index.html`) loads the background image from the puzzle's `bg_image` field stored in R2.
 
 **To set a background:**
 1. In the admin builder, upload a background image when creating a puzzle
 2. It uploads to `WordSearch/{slug}/bg.{ext}` in R2
 3. The public URL is served via `https://files.3c-public-library.org/WordSearch/...`
-4. All public pages inject the image dynamically — no hardcoded paths needed
+4. The game page injects the image dynamically — no hardcoded paths needed
 
 **Recommended image specs:**
 - Landscape orientation (matches mobile landscape gameplay)
@@ -197,7 +196,7 @@ All 4 public pages (`index.html`, `intro.html`, `game.html`, `finale.html`) load
 
 ---
 
-## 6. Public Puzzle URL Format
+## 4. Public Puzzle URL Format
 
 ```
 https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
@@ -205,57 +204,54 @@ https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 
 Share this URL on Telegram / library for members to play.
 
-**Note**: 
-- `landing.html` is the main entry point that loads the puzzle data
-- It then triggers `public/index.html` (consent page) to start the game flow
-- All public game URLs use GitHub Pages. Vercel is not used for game hosting.
+**Note**:
+- `landing.html` is the entry point: it reads the puzzle from the Worker, then opens `public/index.html?puzzle={slug}` to start the game flow.
+- All public game URLs use GitHub Pages.
 
 ---
 
-## 7. Admin Workflow
+## 5. Admin Workflow
 
-1. Go to `https://anica-blip.github.io/3c-word-search/admin/login.html`
-2. Click **GitHub Access Connection** → redirects to Vercel OAuth
-3. Authorize on GitHub → redirects back to GitHub Pages admin
-4. Enter puzzle title + word list (one word per line)
-5. Upload background image, intro asset, finale asset (optional)
-6. Click **⚡ Generate 12×12 Grid** — preview appears
-7. Click **💾 Save Puzzle** — saves to R2 + Supabase
+1. Go to `https://anica-blip.github.io/3c-word-search/login.html`
+2. Click the GitHub sign-in button → GitHub → back to the login page → straight into the admin builder (only the owner's account gets in; any other account is signed out with a notice)
+3. Enter puzzle title + word list (one word per line)
+4. Upload background image, intro asset, finale asset (optional)
+5. Click **⚡ Generate 12×12 Grid** — preview appears
+6. Click **💾 Save Puzzle** — saves to R2 + Supabase (the status message appears in the box under the Grid Generator and disappears after 5 seconds)
+7. Open `admin/landing-upload.html` to add the landing image for a puzzle (optional)
 8. Copy puzzle URL from the archive table
 9. Share URL with members
 
-**OAuth Flow**:
-- Login page: GitHub Pages
-- OAuth handler: Vercel (`/api/auth/login` → `/api/auth/callback`)
-- Admin panel: GitHub Pages (session stored in localStorage)
+**Sign-in flow**:
+- Login page: GitHub Pages (`login.html`)
+- Sign-in: GitHub → Supabase (PKCE), session stored in the browser under its own key (`sb-3c-word-search-login`), refreshed automatically
+- Admin pages: GitHub Pages, behind `auth-guard.js`, which checks `is_owner()` before showing the page
 
 ---
 
-## 8. Game Flow
+## 6. Game Flow
 
 ```
 Member receives URL (landing.html?puzzle=puzzle.01)
       ↓
-Landing page — loads puzzle data from R2
+Landing page — loads puzzle data from the Worker (R2)
       ↓
-Public/index.html — Consent/Start page (instructions + word count)
-      ↓
-Intro.html — Intro media page (image or video, if set)
-      ↓
-Games.html — 12×12 word search game
-  • Drag/tap letters to select a word
-  • Green = found ✅  |  Red flash = wrong ❌
-  • Counter: "3 / 6 found" pulses on each find
-  • "Continue →" appears when all words found
-  • "Quit" always available
-      ↓
-Finale.html — Finale media page (image or video + Well Done message)
+public/index.html — one page that moves through these screens:
+  • Consent / start (instructions + word count)
+  • Intro media (image or video, if set)
+  • 12×12 word search
+      – Drag/tap letters to select a word
+      – Green = found ✅  |  Red flash = wrong ❌
+      – Counter: "3 / 6 found" pulses on each find
+      – "Continue →" appears when all words found
+      – "Quit" always available
+  • Finale media (image or video + Well Done message)
 ```
 
 ---
 
 ## Credits
 
-Built by **Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab** 🧪👨‍🍳
+Designed and Built with ❤ by Claude (Anthropic) × Chef Anica · 3C Thread To Success™ Cooking Lab 🧪👨‍🍳
 
-> _"Think Smart, Not Harder — Zero Shortcuts"_
+> _"Think Smarter, Not Harder — Zero Shortcuts"_
