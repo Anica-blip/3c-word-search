@@ -15,7 +15,29 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://cgxjqsbrditbteqhdyus.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Same session name as auth-guard.js and login.html: all three read and
+// refresh one and the same sign-in. This app keeps its own session name
+// because all of Chef's GitHub Pages apps share one address
+// (anica-blip.github.io).
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storageKey: 'sb-3c-word-search-login',
+  },
+});
+
+/* ── Headers for owner-only Worker calls ────────────── */
+/*
+  The Worker only saves, deletes and uploads for the owner. Every such call
+  sends the current sign-in token. Reading a puzzle needs no token.
+*/
+export async function authHeaders(extra = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+}
 
 /* ── Fetch all puzzles ──────────────────────────────── */
 /*
