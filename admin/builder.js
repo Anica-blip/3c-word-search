@@ -13,6 +13,7 @@
 
 import {
   supabase,
+  authHeaders,
   fetchAllPuzzles,
   generateNextSlug,
   savePuzzle,
@@ -180,7 +181,7 @@ async function uploadMedia(file, type) {
     const { WORKER_URL } = getConfig();
     const res = await fetch(`${WORKER_URL}/media/${currentSlug}/${filename}`, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type },
+      headers: await authHeaders({ 'Content-Type': file.type }),
       body: file,
     });
     if (!res.ok) throw new Error(await res.text());
@@ -224,7 +225,7 @@ export async function savePuzzleHandler() {
   const { WORKER_URL } = getConfig();
   const r2Res = await fetch(`${WORKER_URL}/puzzle/${currentSlug}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(puzzleData),
   });
 
@@ -348,9 +349,16 @@ export async function deletePuzzleHandler(slug) {
   if (!confirm(`Delete ${slug}? This cannot be undone.`)) return;
   await deletePuzzle(slug);
   const { WORKER_URL } = getConfig();
-  await fetch(`${WORKER_URL}/puzzle/${slug}`, { method: 'DELETE' });
+  const delRes = await fetch(`${WORKER_URL}/puzzle/${slug}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
   archive = await fetchAllPuzzles();
   renderArchive();
+  if (!delRes.ok) {
+    showStatus(`${slug} removed from the list, but its stored file could not be deleted (${delRes.status})`, 'error');
+    return;
+  }
   showStatus(`${slug} deleted`, 'success');
 }
 
