@@ -521,7 +521,7 @@
   </div><!-- /workspace -->
 
 <script type="module">
-  import { fetchAllPuzzles } from './supabaseAPI.js';
+  import { fetchAllPuzzles, authHeaders } from './supabaseAPI.js';
 
   const WORKER_URL = window.APP_CONFIG?.WORKER_URL || 'https://3c-wordsearch.3c-innertherapy.workers.dev';
 
@@ -680,7 +680,7 @@
 
         const saveRes = await fetch(`${WORKER_URL}/puzzle/${slug}`, {
           method:  'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authHeaders({ 'Content-Type': 'application/json' }),
           body:    JSON.stringify(puzzleJson, null, 2),
         });
 
@@ -715,10 +715,10 @@
 
       const uploadRes = await fetch(`${WORKER_URL}/landing/${slug}`, {
         method:  'PUT',
-        headers: {
+        headers: await authHeaders({
           'Content-Type':     selectedFile.type || 'application/octet-stream',
           'X-File-Extension': ext,
-        },
+        }),
         body: selectedFile,
       });
 
@@ -741,7 +741,7 @@
 
       const saveRes = await fetch(`${WORKER_URL}/puzzle/${slug}`, {
         method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body:    JSON.stringify(puzzleJson, null, 2),
       });
 
