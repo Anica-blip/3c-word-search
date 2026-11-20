@@ -29,7 +29,7 @@ A fully customizable word search game system where admins can create puzzles wit
 
 | Page | URL |
 |------|-----|
-| **Admin Login** | [admin/login.html](https://anica-blip.github.io/3c-word-search/admin/login.html) |
+| **Admin Login** | [login.html](https://anica-blip.github.io/3c-word-search/login.html) |
 | **Admin Panel** | [admin/index.html](https://anica-blip.github.io/3c-word-search/admin/index.html) |
 | **Public Game** | `landing.html?puzzle=puzzle.01` |
 
@@ -47,19 +47,19 @@ https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | **Hosting** | GitHub Pages | All pages (admin + public games) |
-| **OAuth** | Vercel API Routes | GitHub OAuth login/callback only |
+| **Sign-in** | GitHub through Supabase | Owner-only admin login |
 | **Database** | Supabase | Puzzle metadata storage |
 | **Storage** | Cloudflare R2 | Media files (backgrounds, intro, finale) |
-| **Worker** | Cloudflare Worker | R2 file upload/retrieval API |
+| **Worker** | Cloudflare Worker | R2 file upload/retrieval API (reads public, changes owner-only) |
 
-**Key Design**: Vercel is used **ONLY for OAuth** (`/api/auth/login` and `/api/auth/callback`). All content is hosted on GitHub Pages.
+**Key Design**: there is no Vercel in this app. Sign-in goes from the browser straight to Supabase and GitHub, all pages are hosted on GitHub Pages, and every change (save, delete, upload) needs the owner's sign-in, checked again by the Worker.
 
 ---
 
 ## Features
 
 ### Admin Panel
-- ✅ GitHub OAuth authentication (Anica-blip only)
+- ✅ GitHub sign-in through Supabase (owner only; any other account is signed out)
 - ✅ Create unlimited puzzles with auto-generated slugs (`puzzle.01`, `puzzle.02`, etc.)
 - ✅ Word list input (one word per line, 2-12 letters)
 - ✅ Automatic 12×12 grid generation with word placement algorithm
@@ -84,11 +84,11 @@ https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 ## Tech Stack
 
 - **Frontend**: Vanilla HTML/CSS/JS (no frameworks)
-- **Auth**: GitHub OAuth via Vercel serverless functions
+- **Auth**: GitHub sign-in through Supabase, owner check (`is_owner()`) on every admin page and every Worker change
 - **Database**: Supabase PostgreSQL with RLS policies
 - **Storage**: Cloudflare R2 bucket (`3c-library-files/WordSearch/`)
 - **Worker**: Cloudflare Worker for R2 file operations
-- **Hosting**: GitHub Pages (main) + Vercel (OAuth only)
+- **Hosting**: GitHub Pages
 
 ---
 
@@ -97,28 +97,26 @@ https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 ```
 1. Member receives puzzle URL (landing.html?puzzle=puzzle.01)
    ↓
-2. Landing page — loads puzzle data from R2
+2. Landing page — loads puzzle data from the Worker (R2)
    ↓
-3. Public/index.html — Consent/Start page (shows title, word count, instructions)
-   ↓
-4. Intro.html (optional) — displays intro media
-   ↓
-5. Games.html — 12×12 word search grid
-   • Drag/tap letters to select words
-   • Green = found ✅  |  Red flash = wrong ❌
-   • Counter updates: "3 / 6 found"
-   • "Continue →" appears when complete
-   ↓
-6. Finale.html (optional) — displays finale media + "Well Done!"
+3. public/index.html — one page that moves through these screens:
+   • Consent/Start (title, word count, instructions)
+   • Intro media (optional)
+   • 12×12 word search grid
+     – Drag/tap letters to select words
+     – Green = found ✅  |  Red flash = wrong ❌
+     – Counter updates: "3 / 6 found"
+     – "Continue →" appears when complete
+   • Finale media (optional) + "Well Done!"
 ```
 
 ---
 
 ## Admin Workflow
 
-1. Go to [admin/login.html](https://anica-blip.github.io/3c-word-search/admin/login.html)
-2. Click **GitHub Access Connection** → OAuth via Vercel
-3. Authorize on GitHub → redirected back to admin panel
+1. Go to [login.html](https://anica-blip.github.io/3c-word-search/login.html)
+2. Click the GitHub sign-in button
+3. Authorize on GitHub → you land in the admin panel (only the owner's account gets in)
 4. Enter puzzle title and word list
 5. Upload background image, intro, and finale assets (optional)
 6. Click **⚡ Generate 12×12 Grid** to preview
@@ -131,10 +129,9 @@ https://anica-blip.github.io/3c-word-search/landing.html?puzzle=puzzle.01
 ## Setup
 
 See [SETUP.md](./SETUP.md) for complete deployment instructions including:
-- Supabase database setup
-- Cloudflare Worker deployment
-- GitHub OAuth app configuration
-- Vercel environment variables
+- Supabase table, policies and sign-in setup
+- Cloudflare Worker deployment (pasted in the dashboard, never Wrangler)
+- How the protection works
 - R2 bucket structure
 
 ---
@@ -144,25 +141,21 @@ See [SETUP.md](./SETUP.md) for complete deployment instructions including:
 ```
 repo root/
 ├── worker.js                — Cloudflare Worker source
+├── wrangler.toml            — Record of the Worker's settings (not used to deploy)
 ├── style.css                — Public game styles
 ├── index.html               — Root redirect
 ├── landing.html             — Landing page
-├── Vercel.json              — OAuth routing config
+├── login.html               — Admin sign-in page
+├── auth-guard.js            — Admin page guard (owner check)
 ├── favicon.png              — Tab icon
 ├── admin/                   — Admin panel (GitHub Pages)
-│   ├── login.html           — OAuth login page
-│   ├── signout.html         — Sign out page
 │   ├── index.html           — Puzzle builder
+│   ├── landing-upload.html  — Landing image upload
 │   └── ...
-├── public/                  — Public game pages (GitHub Pages)
-│   ├── index.html           — Consent/start
-│   ├── intro.html           — Intro media
-│   ├── games.html           — Word search game
-│   └── finale.html          — Completion page
-└── api/                     — Vercel serverless (OAuth only)
-    └── auth/
-        ├── login.js         — GitHub OAuth redirect
-        └── callback.js      — OAuth callback handler
+├── public/                  — Public game (GitHub Pages)
+│   └── index.html           — Whole game in one page (consent, intro, puzzle, finale)
+└── api/
+    └── puzzle.js            — Unused leftover (see SETUP.md)
 ```
 
 ---
